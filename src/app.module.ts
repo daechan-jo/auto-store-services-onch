@@ -1,0 +1,76 @@
+import path from 'node:path';
+
+import { CommonModule } from '@daechanjo/common-utils';
+import { RabbitMQModule } from '@daechanjo/rabbitmq';
+import { BullModule, InjectQueue } from '@nestjs/bull';
+import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Queue } from 'bull';
+
+import { TypeormConfig } from './config/typeorm.config';
+import { OnchMessageController } from './api/onch.message.controller';
+import { OnchCrawlerService } from './core/onch.crawler.service';
+import { MessageQueueProcessor } from './core/queue.processor';
+import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
+import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
+import { OnchItem } from './infrastructure/entities/onchItem.entity';
+import { OnchRepository } from './infrastructure/repository/onch.repository';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
+    }),
+    TypeOrmModule.forRootAsync(TypeormConfig),
+    TypeOrmModule.forFeature([OnchProduct, OnchItem]),
+    BullModule.registerQueueAsync({
+      name: 'onch-message-queue',
+      useFactory: async (configService: ConfigService) => ({
+        redis: {
+          host: configService.get<string>('REDIS_HOST'),
+          port: configService.get<number>('REDIS_PORT'),
+        },
+        prefix: '{bull}',
+        defaultJobOptions: {
+          removeOnComplete: true,
+          removeOnFail: true,
+          attempts: 3,
+          backoff: 30000,
+        },
+        limiter: {
+          max: 1,
+          duration: 1000,
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    PlaywrightModule,
+    RabbitMQModule,
+    CommonModule,
+  ],
+  controllers: [OnchMessageController],
+  providers: [OnchCrawlerService, OnchRepository, MessageQueueProcessor],
+})
+export class AppModule implements OnApplicationBootstrap, OnModuleInit {
+  constructor(
+    @InjectQueue('onch-message-queue') private readonly queue: Queue,
+    private readonly playwrightService: PlaywrightService,
+  ) {}
+
+  async onModuleInit() {
+    await this.queue.clean(0, 'delayed'); // 지연된 작업 제거
+    await this.queue.clean(0, 'wait'); // 대기 중인 작업 제거
+    await this.queue.clean(0, 'active'); // 활성 작업 제거
+    await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
+    console.log('Bull 대기열 초기화');
+  }
+
+  async onApplicationBootstrap() {
+    setTimeout(async () => {
+      this.playwrightService.setConfig(true, 'chromium');
+      await this.playwrightService.initializeBrowser();
+    });
+  }
+}
