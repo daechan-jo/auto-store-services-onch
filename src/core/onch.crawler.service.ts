@@ -1,12 +1,12 @@
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
-
-import { CronType } from '../../../../models/types/cron.type';
-import { Dialog, CoupangOrderInfo, OnchSoldout } from '../../../../models/interfaces';
-import { OnchRepository } from '../infrastructure/repository/onch.repository';
-import { OnchProductInterface } from '../../../../models/interfaces/data/onchProduct.interface';
 import { Page } from 'playwright';
+
+import { Dialog, CoupangOrderInfo, OnchSoldout } from '../../../../models/interfaces';
+import { OnchProductInterface } from '../../../../models/interfaces/data/onchProduct.interface';
+import { CronType } from '../../../../models/types/cron.type';
 import { courierNames } from '../common/couries';
+import { OnchRepository } from '../infrastructure/repository/onch.repository';
 
 @Injectable()
 export class OnchCrawlerService {
@@ -47,7 +47,6 @@ export class OnchCrawlerService {
     matchedNaverProducts?: any[],
   ): Promise<void> {
     console.log(`${type}${cronId}: 온채널 품절상품 삭제`);
-    const pageId = `page-${store}-${cronId}`;
     const contextId = `context-${store}-${cronId}`;
 
     // 각 상품 코드 추출 및 중복 제거
@@ -77,7 +76,7 @@ export class OnchCrawlerService {
     console.log(`${type}${cronId}: 총 ${totalProducts}개 상품 삭제 예정`);
 
     // 병렬 처리를 위한 설정
-    const BATCH_SIZE = 2; // 동시에 처리할 최대 페이지 수
+    const BATCH_SIZE = 2;
     let completedCount = 0;
     let failedCount = 0;
 

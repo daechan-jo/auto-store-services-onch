@@ -1,6 +1,5 @@
-import path from 'node:path';
-
 import { CommonModule } from '@daechanjo/common-utils';
+import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
 import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
@@ -8,13 +7,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Queue } from 'bull';
 
-import { TypeormConfig } from './config/typeorm.config';
 import { OnchMessageController } from './api/onch.message.controller';
+import { TypeormConfig } from './config/typeorm.config';
 import { OnchCrawlerService } from './core/onch.crawler.service';
 import { MessageQueueProcessor } from './core/queue.processor';
-import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
-import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
 import { OnchItem } from './infrastructure/entities/onchItem.entity';
+import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';
 
 @Module({
