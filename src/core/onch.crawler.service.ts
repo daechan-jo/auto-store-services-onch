@@ -4,8 +4,8 @@ import { Injectable } from '@nestjs/common';
 import { CronType } from '../../../../models/types/cron.type';
 import { Dialog, CoupangOrderInfo, OnchSoldout } from '../../../../models/interfaces';
 import { OnchRepository } from '../infrastructure/repository/onch.repository';
-import { OnchProduct } from '../../../../models/interfaces/data/onchProduct.interface';
-import { Browser, BrowserContext, Page, chromium, firefox, webkit, BrowserType } from 'playwright';
+import { OnchProductInterface } from '../../../../models/interfaces/data/onchProduct.interface';
+import { Page } from 'playwright';
 import { courierNames } from '../common/couries';
 
 @Injectable()
@@ -380,7 +380,7 @@ export class OnchCrawlerService {
       await Promise.all(
         chunks.map(async (chunk, pageIndex) => {
           const page = pages[pageIndex];
-          const localDetails: OnchProduct[] = [];
+          const localDetails: OnchProductInterface[] = [];
 
           for (const productId of chunk) {
             try {

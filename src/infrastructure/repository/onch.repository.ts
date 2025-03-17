@@ -2,6 +2,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { DataSource, Repository } from 'typeorm';
 import { OnchProduct } from '../entities/onchProduct.entity';
+import { OnchProductInterface } from '../../../../../models/interfaces';
 
 export class OnchRepository {
   constructor(
@@ -10,7 +11,7 @@ export class OnchRepository {
     private readonly dataSource: DataSource,
   ) {}
 
-  async saveOnchProductDetails(details: OnchProductDto[]) {
+  async saveOnchProductDetails(details: OnchProductInterface[]) {
     const entities = plainToInstance(OnchProduct, details);
     await this.onchRepository.save(entities);
   }
