@@ -10,7 +10,14 @@ import { Queue } from 'bull';
 import { OnchMessageController } from './api/onch.message.controller';
 import { TypeormConfig } from './config/typeorm.config';
 import { OnchCrawlerService } from './core/crawler/onch.crawler.service';
+import { AutomaticOrderingProvider } from './core/crawler/provider/automaticOrdering.provider';
+import { CrawlingOnchSoldoutProductsProvider } from './core/crawler/provider/crawlingOnchSoldoutProducts.provider';
+import { CrawlOnchDetailProductsProvider } from './core/crawler/provider/crawlOnchDetailProducts.provider';
+import { CrawlOnchRegisteredProductsProvider } from './core/crawler/provider/crawlOnchRegisteredProducts.provider';
+import { DeleteProductsProvider } from './core/crawler/provider/deleteProducts.provider';
+import { WaybillExtractionProvider } from './core/crawler/provider/waybillExtraction.provider';
 import { MessageQueueProcessor } from './core/onch.queue.processor';
+import { OnchService } from './core/onch.service';
 import { OnchItem } from './infrastructure/entities/onchItem.entity';
 import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';
@@ -49,7 +56,18 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     CommonModule,
   ],
   controllers: [OnchMessageController],
-  providers: [OnchCrawlerService, OnchRepository, MessageQueueProcessor],
+  providers: [
+    OnchService,
+    OnchCrawlerService,
+    OnchRepository,
+    MessageQueueProcessor,
+    DeleteProductsProvider,
+    CrawlingOnchSoldoutProductsProvider,
+    CrawlOnchRegisteredProductsProvider,
+    CrawlOnchDetailProductsProvider,
+    AutomaticOrderingProvider,
+    WaybillExtractionProvider,
+  ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
   constructor(
@@ -67,7 +85,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(true, 'chromium');
+      this.playwrightService.setConfig(false, 'chromium');
       await this.playwrightService.initializeBrowser();
     });
   }

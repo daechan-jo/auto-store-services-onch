@@ -35,6 +35,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
 
   private onJobCompleted = (jobId: string, result: any) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
     } catch (error: any) {
       console.error(`작업 완료 처리 중 JSON 파싱 실패: ${jobId}`, error.message);
