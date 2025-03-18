@@ -1,10 +1,14 @@
+import {
+  Dialog,
+  CoupangOrderInfoInterface,
+  OnchSoldout,
+  CronType,
+  OnchProductInterface,
+} from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
 
-import { Dialog, CoupangOrderInfo, OnchSoldout } from '../../../../models/interfaces';
-import { OnchProductInterface } from '../../../../models/interfaces/data/onchProduct.interface';
-import { CronType } from '../../../../models/types/cron.type';
 import { courierNames } from '../common/couries';
 import { OnchRepository } from '../infrastructure/repository/onch.repository';
 
@@ -509,8 +513,9 @@ export class OnchCrawlerService {
       for (let i = 1; i < pages.length; i++) {
         try {
           await pages[i].close();
-        } catch (e) {
+        } catch (error) {
           // 이미 닫힌 페이지는 무시
+          console.log(`${CronType.ERROR}${cronId}: 이미 닫힌 페이지`, error);
         }
       }
 
@@ -554,7 +559,7 @@ export class OnchCrawlerService {
   async automaticOrdering(
     cronId: string,
     store: string,
-    newOrderProducts: CoupangOrderInfo[],
+    newOrderProducts: CoupangOrderInfoInterface[],
     type: string,
   ): Promise<Array<any>> {
     const contextId = `context-${store}-${cronId}`;
@@ -688,7 +693,7 @@ export class OnchCrawlerService {
       await page.waitForSelector(orderButtonSelector, { timeout: 5000 });
     } catch (error) {
       throw new Error(
-        `${CronType.ERROR}${CronType.ORDER}${cronId}: 제품 코드에 대한 주문 버튼을 찾을 수 없습니다: ${query}`,
+        `${CronType.ERROR}${CronType.ORDER}${cronId}: 제품 코드에 대한 주문 버튼을 찾을 수 없습니다: ${query}\n${error}`,
       );
     }
 

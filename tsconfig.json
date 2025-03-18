@@ -23,6 +23,9 @@
 		"src/**/*.ts", // 서비스 소스
 		//		"src/types/global.d.ts",
 	],
-	"exclude": ["node_modules", "dist"] // 빌드에서 제외할 파일
+	"exclude": ["node_modules", "dist"],// 빌드에서 제외할 파일
+	"ts-node": {
+		"swc": true
+	}
 }
 

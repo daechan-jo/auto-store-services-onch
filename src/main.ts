@@ -1,12 +1,12 @@
 import * as process from 'node:process';
 
+import { setupGlobalConsoleLogging } from '@daechanjo/log';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import * as dotenv from 'dotenv';
 import { initializeTransactionalContext } from 'typeorm-transactional';
 
 import { AppModule } from './app.module';
-import { setupGlobalConsoleLogging } from '../../../common/setupGlobalConsoleLogging';
 
 dotenv.config({
   path: '/Users/daechanjo/codes/project/auto-store/.env',

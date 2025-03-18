@@ -1,8 +1,9 @@
+import { OnchProductInterface } from '@daechanjo/models';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { DataSource, Repository } from 'typeorm';
+
 import { OnchProduct } from '../entities/onchProduct.entity';
-import { OnchProductInterface } from '../../../../../models/interfaces';
 
 export class OnchRepository {
   constructor(

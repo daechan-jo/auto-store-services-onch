@@ -10,7 +10,7 @@ import { Queue } from 'bull';
 import { OnchMessageController } from './api/onch.message.controller';
 import { TypeormConfig } from './config/typeorm.config';
 import { OnchCrawlerService } from './core/onch.crawler.service';
-import { MessageQueueProcessor } from './core/queue.processor';
+import { MessageQueueProcessor } from './core/onch.queue.processor';
 import { OnchItem } from './infrastructure/entities/onchItem.entity';
 import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';

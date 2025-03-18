@@ -1,3 +1,4 @@
+import { Type } from '@daechanjo/models';
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
 
 import { OnchItem } from './onchItem.entity';
@@ -13,7 +14,7 @@ export class OnchProduct {
   @OneToMany(() => OnchItem, (onchItem) => onchItem.onchProduct, {
     cascade: true,
   })
-  onchItems: OnchItem[];
+  onchItems: Type<OnchItem>[];
 
   @Column({ name: 'consumer_price', type: 'int', nullable: true })
   consumerPrice: number;

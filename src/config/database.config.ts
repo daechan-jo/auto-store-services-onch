@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import { DataSourceOptions } from 'typeorm';
 
 dotenv.config({
-  path: '/Users/daechanjo/codes/project/store/li/.env',
+  path: '/Users/daechanjo/codes/project/auto-store/.env',
 });
 
 export const getDbConfig = (): DataSourceOptions => {

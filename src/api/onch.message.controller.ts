@@ -1,9 +1,9 @@
+import { CronType } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { Queue } from 'bull';
 
-import { CronType } from '../../../../models/types/cron.type';
 import { OnchCrawlerService } from '../core/onch.crawler.service';
 
 @Controller()

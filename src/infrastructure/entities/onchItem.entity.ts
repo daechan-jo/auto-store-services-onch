@@ -1,3 +1,4 @@
+import { Type } from '@daechanjo/models';
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from 'typeorm';
 
 import { OnchProduct } from './onchProduct.entity';
@@ -19,7 +20,7 @@ export class OnchItem {
   @ManyToOne(() => OnchProduct, (onchProduct) => onchProduct.onchItems, {
     onDelete: 'CASCADE',
   })
-  onchProduct: OnchProduct;
+  onchProduct: Type<OnchProduct>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
