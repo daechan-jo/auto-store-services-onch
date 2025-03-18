@@ -3,7 +3,7 @@ import { Processor, Process } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { Job } from 'bull';
 
-import { OnchCrawlerService } from './onch.crawler.service';
+import { OnchCrawlerService } from './crawler/onch.crawler.service';
 
 @Processor('onch-message-queue')
 @Injectable()

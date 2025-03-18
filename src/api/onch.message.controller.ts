@@ -4,14 +4,14 @@ import { Controller, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { Queue } from 'bull';
 
-import { OnchCrawlerService } from '../core/onch.crawler.service';
+import { OnchService } from '../core/onch.service';
 
 @Controller()
 export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
   private isEventListenersRegistered = false;
 
   constructor(
-    private readonly onchService: OnchCrawlerService,
+    private readonly onchService: OnchService,
     @InjectQueue('onch-message-queue') private readonly messageQueue: Queue,
   ) {}
 
