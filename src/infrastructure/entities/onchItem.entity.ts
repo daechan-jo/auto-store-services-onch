@@ -1,10 +1,10 @@
 import { Type } from '@daechanjo/models';
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from 'typeorm';
 
-import { OnchProduct } from './onchProduct.entity';
+import { OnchProductEntity } from './onchProduct.entity';
 
 @Entity({ name: 'onch_item' })
-export class OnchItem {
+export class OnchItemEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -17,10 +17,10 @@ export class OnchItem {
   @Column({ name: 'seller_price', type: 'int', nullable: true })
   sellerPrice: number;
 
-  @ManyToOne(() => OnchProduct, (onchProduct) => onchProduct.onchItems, {
+  @ManyToOne(() => OnchProductEntity, (onchProduct) => onchProduct.onchItems, {
     onDelete: 'CASCADE',
   })
-  onchProduct: Type<OnchProduct>;
+  onchProduct: Type<OnchProductEntity>;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

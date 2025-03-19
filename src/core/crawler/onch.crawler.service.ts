@@ -1,9 +1,4 @@
-import {
-  CoupangOrderInfoInterface,
-  OnchSoldout,
-  CronType,
-  OnchProductInterface,
-} from '@daechanjo/models';
+import { CoupangOrderInfo, OnchSoldout, CronType, OnchProduct } from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
@@ -137,6 +132,10 @@ export class OnchCrawlerService {
 
       await this.playwrightService.releaseContext(contextId);
 
+      console.log(
+        `${type}${cronId}: 온채널 품절상품 크롤링 완료. 총 ${result.stockProductCodes.length}개 상품`,
+      );
+
       return result;
     } catch (error: any) {
       console.error(
@@ -235,10 +234,7 @@ export class OnchCrawlerService {
       console.log(`${CronType.PRICE}${cronId}: 총 ${pages.length}개 페이지로 병렬 처리 시작`);
 
       // 2. 상품 정보 병렬 추출 및 처리
-      const result = await this.playwrightService.processItemsInParallel<
-        string,
-        OnchProductInterface
-      >(
+      const result = await this.playwrightService.processItemsInParallel<string, OnchProduct>(
         pages,
         allProductIds,
         async (page, productId) => {
@@ -302,7 +298,7 @@ export class OnchCrawlerService {
   async automaticOrdering(
     cronId: string,
     store: string,
-    newOrderProducts: CoupangOrderInfoInterface[],
+    newOrderProducts: CoupangOrderInfo[],
     type: string,
   ): Promise<Array<any>> {
     const contextId = `context-${store}-${cronId}`;

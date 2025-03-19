@@ -1,4 +1,4 @@
-import { OnchProductInterface } from '@daechanjo/models';
+import { OnchProduct } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
 
@@ -11,7 +11,7 @@ export class CrawlOnchDetailProductsProvider {
    * @param productId - 추출할 상품의 ID
    * @returns 추출된 상품 상세 정보
    */
-  async extractProductDetails(page: Page, productId: string): Promise<OnchProductInterface> {
+  async extractProductDetails(page: Page, productId: string): Promise<OnchProduct> {
     await page.goto(
       `https://www.onch3.co.kr/dbcenter_renewal/dbcenter_view.html?num=${productId}`,
       {

@@ -18,8 +18,8 @@ import { DeleteProductsProvider } from './core/crawler/provider/deleteProducts.p
 import { WaybillExtractionProvider } from './core/crawler/provider/waybillExtraction.provider';
 import { MessageQueueProcessor } from './core/onch.queue.processor';
 import { OnchService } from './core/onch.service';
-import { OnchItem } from './infrastructure/entities/onchItem.entity';
-import { OnchProduct } from './infrastructure/entities/onchProduct.entity';
+import { OnchItemEntity } from './infrastructure/entities/onchItem.entity';
+import { OnchProductEntity } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';
 
 @Module({
@@ -29,7 +29,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
       envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
-    TypeOrmModule.forFeature([OnchProduct, OnchItem]),
+    TypeOrmModule.forFeature([OnchProductEntity, OnchItemEntity]),
     BullModule.registerQueueAsync({
       name: 'onch-message-queue',
       useFactory: async (configService: ConfigService) => ({
@@ -85,7 +85,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(false, 'chromium');
+      this.playwrightService.setConfig(true, 'chromium');
       await this.playwrightService.initializeBrowser();
     });
   }
