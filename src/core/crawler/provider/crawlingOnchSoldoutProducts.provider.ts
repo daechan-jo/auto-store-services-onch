@@ -42,8 +42,7 @@ export class CrawlingOnchSoldoutProductsProvider {
    * 품절 상품 페이지에서 상품 코드와 등록/수정 날짜를 추출합니다.
    *
    * @param page - Playwright 페이지 객체
-   * @param lastCronTime - 마지막 크론 작업 실행 시간 (Date 객체)
-   * @returns {Promise<{ stockProductCodes: string[]; productDates: string[] }>} -
+   * @returns {Promise<{ soldoutProductCodes: string[]; }>} -
    *          품절된 상품 코드 배열과 해당 상품들의 등록/수정 날짜 배열
    *
    * @description
@@ -51,44 +50,44 @@ export class CrawlingOnchSoldoutProductsProvider {
    * - 마지막 크론 실행 시간 이후에 추가/수정된 품절 상품만 필터링
    * - 날짜 정보는 ISO 문자열 형식으로 변환하여 반환
    */
-  async extractSoldOutProducts(
-    page: Page,
-    lastCronTime: Date | null,
-  ): Promise<{ stockProductCodes: string[]; productDates: string[] }> {
-    const lastCronTimeMillis = lastCronTime ? lastCronTime.getTime() : 0;
+  async extractSoldOutProducts(page: Page): Promise<{ soldoutProductCodes: string[] }> {
+    return await page.evaluate(() => {
+      const stockProductCodes = [];
+      const productDates = [];
 
-    return page.evaluate((lastCronTimeMillis) => {
-      const stockProductCodes: string[] = [];
-      const productDates: string[] = [];
+      // 상품 정보가 있는 테이블 찾기
+      const productRows = Array.from(
+        document.querySelectorAll('table tbody tr td.title_3.sub_title'),
+      ).filter((td) => td.querySelector('b'));
 
-      // 테이블의 모든 행 선택
-      const rows = Array.from(document.querySelectorAll('tr'));
+      // 각 상품 행에서 데이터 추출
+      productRows.forEach((cell) => {
+        // 코드 추출 (b 태그 안에 있는 코드)
+        const codeElement = cell.querySelector('b');
+        if (codeElement) {
+          const codeText = codeElement.textContent?.trim() || '';
+          stockProductCodes.push(codeText);
+        }
 
-      // 각 행에서 필요한 데이터 추출
-      rows.forEach((row) => {
-        const dateCell = row.querySelector('td.title_4.sub_title');
-        const codeCell = row.querySelector('td.title_3.sub_title > b');
+        // 이 셀과 관련된 날짜 셀 찾기 (같은 행 내의 날짜 셀)
+        const row = cell.closest('tr');
+        const dateCell = row?.querySelector('td.title_4.sub_title');
 
-        if (dateCell && codeCell) {
+        if (dateCell) {
           const dateText = dateCell.textContent?.trim() || '';
-          const codeText = codeCell.textContent?.trim() || '';
-
           // 날짜 파싱 (형식: '2023-01-01 14:30:00')
           const productDate = new Date(dateText.slice(0, 10) + 'T' + dateText.slice(11));
 
           // 유효한 날짜인 경우만 처리
           if (!isNaN(productDate.getTime())) {
             productDates.push(productDate.toISOString());
-
-            // 마지막 크론 시간 이후에 추가/수정된, 즉 신규 품절된 상품만 필터링
-            if (lastCronTimeMillis && productDate.getTime() > lastCronTimeMillis) {
-              stockProductCodes.push(codeText);
-            }
           }
         }
       });
 
-      return { stockProductCodes, productDates };
-    }, lastCronTimeMillis);
+      return {
+        soldoutProductCodes: stockProductCodes,
+      };
+    });
   }
 }

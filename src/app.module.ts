@@ -1,6 +1,7 @@
-import { CommonModule } from '@daechanjo/common-utils';
+import { CronType } from '@daechanjo/models';
 import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
+import { UtilModule } from '@daechanjo/util';
 import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -53,7 +54,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     }),
     PlaywrightModule,
     RabbitMQModule,
-    CommonModule,
+    UtilModule,
   ],
   controllers: [OnchMessageController],
   providers: [
@@ -73,6 +74,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
   constructor(
     @InjectQueue('onch-message-queue') private readonly queue: Queue,
     private readonly playwrightService: PlaywrightService,
+    private readonly onchCrawlerService: OnchCrawlerService,
   ) {}
 
   async onModuleInit() {
@@ -85,8 +87,14 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(false, 'chromium');
+      this.playwrightService.setConfig(true, 'chromium');
       await this.playwrightService.initializeBrowser();
+      // await this.onchCrawlerService.crawlingOnchSoldoutProducts(
+      //   '2025-03-18T11:43:17.366Z',
+      //   'linkedout',
+      //   'test',
+      //   CronType.SOLDOUT,
+      // );
     });
   }
 }

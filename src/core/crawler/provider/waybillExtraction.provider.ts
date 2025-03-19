@@ -53,6 +53,7 @@ export class WaybillExtractionProvider {
       lastCronTime: string;
       courierNames: string[];
     }
+    const cronTimeDate = lastCronTime instanceof Date ? lastCronTime : new Date(lastCronTime);
 
     // 현재 페이지의 제품 목록에서 데이터 추출
     return await onchPage.$$eval<OnchSoldout[], EvalArgs>(
@@ -80,7 +81,7 @@ export class WaybillExtractionProvider {
           .filter((item): item is OnchSoldout => item !== null); // null 항목 제거 및 타입 가드 적용
       },
       {
-        lastCronTime: lastCronTime.toISOString(), // Date 객체를 ISO 문자열로 변환
+        lastCronTime: cronTimeDate.toISOString(), // Date 객체를 ISO 문자열로 변환
         courierNames,
       },
     );

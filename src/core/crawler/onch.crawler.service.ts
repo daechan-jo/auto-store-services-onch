@@ -88,12 +88,11 @@ export class OnchCrawlerService {
   /**
    * 온채널에서 마지막 크론 작업 이후 품절된 상품들을 크롤링하는 메서드
    *
-   * @param lastCronTime - 마지막 크론 작업 실행 시간 (ISO 문자열 형식)
    * @param store - 크롤링 대상 스토어 이름
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    *
-   * @returns {Promise<{stockProductCodes: string[], productDates: string[]}>} -
+   * @returns {Promise<{soldoutProductCodes: string[]}>} -
    *          품절된 상품 코드 배열과 해당 상품들의 등록/수정 날짜 배열을 포함하는 Promise
    *
    * @throws {Error} - Playwright 작업 중 발생하는 모든 오류
@@ -110,33 +109,35 @@ export class OnchCrawlerService {
    * finally 블록에서 컨텍스트 리소스를 확실히 해제하여 메모리 누수를 방지합니다.
    */
   async crawlingOnchSoldoutProducts(
-    lastCronTime: string,
     store: string,
     cronId: string,
     type: string,
-  ): Promise<{ stockProductCodes: string[]; productDates: string[] }> {
+  ): Promise<{ soldoutProductCodes: string[] }> {
     const pageId = `page-${store}-${cronId}`;
     const contextId = `context-${store}-${cronId}`;
-
-    const parsedLastCronTime = new Date(lastCronTime);
 
     try {
       // 1. 온채널 관리자 로그인 및 페이지 이동
       const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+      await onchPage.waitForLoadState('networkidle', { timeout: 10000 });
 
-      // 2. 품절 상품 정보 추출
-      const result = await this.crawlingOnchSoldoutProductsProvider.extractSoldOutProducts(
-        onchPage,
-        parsedLastCronTime,
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      await onchPage.goto(
+        'https://www.onch3.co.kr/admin_mem_clo_list_2.php?ost=&sec=clo&ol=&npage=',
+        {
+          timeout: 60000,
+          waitUntil: 'networkidle',
+        },
       );
-
-      await this.playwrightService.releaseContext(contextId);
+      // 2. 품절 상품 정보 추출
+      const codes = await this.crawlingOnchSoldoutProductsProvider.extractSoldOutProducts(onchPage);
 
       console.log(
-        `${type}${cronId}: 온채널 품절상품 크롤링 완료. 총 ${result.stockProductCodes.length}개 상품`,
+        `${type}${cronId}: 온채널 품절상품 크롤링 완료. 총 ${codes.soldoutProductCodes.length}개 상품`,
       );
 
-      return result;
+      return codes;
     } catch (error: any) {
       console.error(
         `${CronType.ERROR}${type}${cronId}: 온채널 품절상품 크롤링 오류\n`,
@@ -423,16 +424,18 @@ export class OnchCrawlerService {
     const contextId = `context-${store}-${cronId}`;
     const pageId = `page-${store}-${cronId}`;
 
-    // 온채널 사이트에 로그인하고 페이지 객체 획득
-    const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
-
     try {
-      // 관리자 제품 페이지로 이동 (타임아웃 무제한 설정)
+      // 온채널 사이트에 로그인하고 페이지 객체 획득
+      const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // 관리자 제품 페이지로 이동
       await onchPage.goto('https://www.onch3.co.kr/admin_mem_prd.html', {
-        timeout: 0,
+        timeout: 30000,
+        waitUntil: 'networkidle',
       });
 
-      console.log(`${type}${cronId}: 운송장 추출 시작`);
+      await onchPage.waitForLoadState('networkidle');
 
       // 운송장 데이터 추출
       return await this.waybillExtractionProvider.extractWaybillData(
