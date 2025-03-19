@@ -85,7 +85,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(true, 'chromium');
+      this.playwrightService.setConfig(false, 'chromium');
       await this.playwrightService.initializeBrowser();
     });
   }

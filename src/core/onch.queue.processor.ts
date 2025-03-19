@@ -38,7 +38,6 @@ export class MessageQueueProcessor {
             );
           return { status: 'success', data: { stockProductCodes, productDates } };
 
-        // todo 현재 price 모듈의 분리환경에서 운영중
         case 'crawlOnchRegisteredProducts':
           await this.onchService.crawlOnchRegisteredProducts(
             payload.cronId,

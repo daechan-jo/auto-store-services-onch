@@ -4,6 +4,7 @@ import { Controller, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
 import { Queue } from 'bull';
 
+import { OnchCrawlerService } from '../core/crawler/onch.crawler.service';
 import { OnchService } from '../core/onch.service';
 
 @Controller()
@@ -12,6 +13,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly onchService: OnchService,
+    private readonly onchCrawlerService: OnchCrawlerService,
     @InjectQueue('onch-message-queue') private readonly messageQueue: Queue,
   ) {}
 
@@ -46,78 +48,125 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
     console.error(`작업 실패: ${jobId}`, error);
   };
 
+  // @MessagePattern('onch-queue')
+  // async handleOnchMessage(message: any) {
+  //   const { pattern, payload } = message;
+  //
+  //   try {
+  //     const queuePatterns = [
+  //       'deleteProducts',
+  //       'crawlingOnchSoldoutProducts',
+  //       'crawlOnchRegisteredProducts',
+  //       'automaticOrdering',
+  //       'waybillExtraction',
+  //       'soldoutCheck',
+  //     ];
+  //
+  //     if (queuePatterns.includes(pattern)) {
+  //       console.log(`${payload.type}${payload.cronId}: 📨${pattern}`);
+  //       const job = await this.messageQueue.add('process-message', message);
+  //
+  //       if (
+  //         [
+  //           'crawlingOnchSoldoutProducts',
+  //           'crawlOnchRegisteredProducts',
+  //           'automaticOrdering',
+  //           'waybillExtraction',
+  //           'soldoutCheck',
+  //         ].includes(pattern)
+  //       ) {
+  //         // return await job.finished();
+  //         return new Promise((resolve, reject) => {
+  //           const onComplete = (jobId: string, result: any) => {
+  //             if (jobId === job.id) {
+  //               this.messageQueue.off('global:completed', onComplete);
+  //               this.messageQueue.off('global:failed', onFail);
+  //               try {
+  //                 resolve(typeof result === 'string' ? JSON.parse(result) : result); // JSON으로 파싱
+  //               } catch (error: any) {
+  //                 reject(new Error(`JSON 파싱 실패: ${error.message}`));
+  //               }
+  //             }
+  //           };
+  //
+  //           const onFail = (jobId: string, error: any) => {
+  //             if (jobId === job.id) {
+  //               this.messageQueue.off('global:completed', onComplete);
+  //               this.messageQueue.off('global:failed', onFail);
+  //               reject(error);
+  //             }
+  //           };
+  //
+  //           this.messageQueue.on('global:completed', onComplete);
+  //           this.messageQueue.on('global:failed', onFail);
+  //         });
+  //       }
+  //
+  //       return;
+  //     }
+  //     return await this.processMessage(pattern, payload);
+  //   } catch (error: any) {
+  //     console.error(
+  //       `${CronType.ERROR}${payload.type}${payload.cronId}: 📬${pattern}\n`,
+  //       error.response?.data || error.message,
+  //     );
+  //     return { status: 'error', message: error.message };
+  //   }
+  // }
+
   @MessagePattern('onch-queue')
-  async handleOnchMessage(message: any) {
-    const { pattern, payload } = message;
-
-    try {
-      const queuePatterns = [
-        'deleteProducts',
-        'crawlingOnchSoldoutProducts',
-        'crawlOnchRegisteredProducts',
-        'automaticOrdering',
-        'waybillExtraction',
-        'soldoutCheck',
-      ];
-
-      if (queuePatterns.includes(pattern)) {
-        console.log(`${payload.type}${payload.cronId}: 📨${pattern}`);
-        const job = await this.messageQueue.add('process-message', message);
-
-        if (
-          [
-            'crawlingOnchSoldoutProducts',
-            'crawlOnchRegisteredProducts',
-            'automaticOrdering',
-            'waybillExtraction',
-            'soldoutCheck',
-          ].includes(pattern)
-        ) {
-          // return await job.finished();
-          return new Promise((resolve, reject) => {
-            const onComplete = (jobId: string, result: any) => {
-              if (jobId === job.id) {
-                this.messageQueue.off('global:completed', onComplete);
-                this.messageQueue.off('global:failed', onFail);
-                try {
-                  resolve(typeof result === 'string' ? JSON.parse(result) : result); // JSON으로 파싱
-                } catch (error: any) {
-                  reject(new Error(`JSON 파싱 실패: ${error.message}`));
-                }
-              }
-            };
-
-            const onFail = (jobId: string, error: any) => {
-              if (jobId === job.id) {
-                this.messageQueue.off('global:completed', onComplete);
-                this.messageQueue.off('global:failed', onFail);
-                reject(error);
-              }
-            };
-
-            this.messageQueue.on('global:completed', onComplete);
-            this.messageQueue.on('global:failed', onFail);
-          });
-        }
-
-        return;
-      }
-      return await this.processMessage(pattern, payload);
-    } catch (error: any) {
-      console.error(
-        `${CronType.ERROR}${payload.type}${payload.cronId}: 📬${pattern}\n`,
-        error.response?.data || error.message,
-      );
-      return { status: 'error', message: error.message };
-    }
-  }
-
   async processMessage(pattern: string, payload: any) {
     console.log(`${payload.type}${payload.cronId}: 📬${pattern}`);
     switch (pattern) {
       case 'clearOnchProducts':
         await this.onchService.clearOnchProducts();
         return { status: 'success' };
+
+      case 'deleteProducts':
+        await this.onchCrawlerService.deleteProducts(
+          payload.cronId,
+          payload.store,
+          payload.type,
+          payload.matchedCoupangProducts,
+          payload.matchedNaverProducts,
+        );
+        break;
+
+      case 'crawlingOnchSoldoutProducts':
+        const { stockProductCodes, productDates } =
+          await this.onchCrawlerService.crawlingOnchSoldoutProducts(
+            payload.lastCronTime,
+            payload.store,
+            payload.cronId,
+            payload.type,
+          );
+        return { status: 'success', data: { stockProductCodes, productDates } };
+
+      case 'crawlOnchRegisteredProducts':
+        await this.onchCrawlerService.crawlOnchRegisteredProducts(
+          payload.cronId,
+          payload.store,
+          payload.type,
+        );
+        return { status: 'success' };
+
+      case 'automaticOrdering':
+        const automaticOrderingResult = await this.onchCrawlerService.automaticOrdering(
+          payload.cronId,
+          payload.store,
+          payload.newOrderProducts,
+          payload.type,
+        );
+        return { status: 'success', data: automaticOrderingResult };
+
+      case 'waybillExtraction':
+        const waybillExtractionResult = await this.onchCrawlerService.waybillExtraction(
+          payload.cronId,
+          payload.store,
+          payload.lastCronTime,
+          payload.type,
+        );
+        return { status: 'success', data: waybillExtractionResult };
 
       default:
         console.error(
