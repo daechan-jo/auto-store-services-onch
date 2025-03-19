@@ -1,19 +1,19 @@
-import { OnchProductInterface } from '@daechanjo/models';
+import { OnchProduct } from '@daechanjo/models';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { DataSource, Repository } from 'typeorm';
 
-import { OnchProduct } from '../entities/onchProduct.entity';
+import { OnchProductEntity } from '../entities/onchProduct.entity';
 
 export class OnchRepository {
   constructor(
-    @InjectRepository(OnchProduct)
-    private readonly onchRepository: Repository<OnchProduct>,
+    @InjectRepository(OnchProductEntity)
+    private readonly onchRepository: Repository<OnchProductEntity>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async saveOnchProductDetails(details: OnchProductInterface[]) {
-    const entities = plainToInstance(OnchProduct, details);
+  async saveOnchProductDetails(details: OnchProduct[]) {
+    const entities = plainToInstance(OnchProductEntity, details);
     await this.onchRepository.save(entities);
   }
 
