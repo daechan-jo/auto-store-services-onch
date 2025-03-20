@@ -8,7 +8,7 @@ import { CrawlingOnchSoldoutProductsProvider } from './provider/crawlingOnchSold
 import { CrawlOnchDetailProductsProvider } from './provider/crawlOnchDetailProducts.provider';
 import { CrawlOnchRegisteredProductsProvider } from './provider/crawlOnchRegisteredProducts.provider';
 import { DeleteProductsProvider } from './provider/deleteProducts.provider';
-import { WaybillExtractionProvider } from './provider/waybillExtraction.provider';
+import { DeliveryExtractionProvider } from './provider/deliveryExtraction.provider';
 import { OnchRepository } from '../../infrastructure/repository/onch.repository';
 
 @Injectable()
@@ -21,7 +21,7 @@ export class OnchCrawlerService {
     private readonly crawlOnchRegisteredProductsProvider: CrawlOnchRegisteredProductsProvider,
     private readonly crawlOnchDetailProductsProvider: CrawlOnchDetailProductsProvider,
     private readonly automaticOrderingProvider: AutomaticOrderingProvider,
-    private readonly waybillExtractionProvider: WaybillExtractionProvider,
+    private readonly deliveryExtractionProvider: DeliveryExtractionProvider,
   ) {}
 
   /**
@@ -401,7 +401,6 @@ export class OnchCrawlerService {
    *
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 스토어 식별자 (온채널 계정 구분용)
-   * @param lastCronTime - 마지막으로 크론이 실행된 시간 (이 시간 이후의 주문만 처리)
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<OnchSoldout[]>} - 추출된 운송장 정보 배열을 반환하는 Promise
@@ -414,12 +413,7 @@ export class OnchCrawlerService {
    * 4. 페이지네이션을 통해 모든 페이지의 데이터를 스크래핑
    * 5. 작업 완료 후 Playwright 컨텍스트 해제
    */
-  async waybillExtraction(
-    cronId: string,
-    store: string,
-    lastCronTime: Date,
-    type: string,
-  ): Promise<OnchSoldout[]> {
+  async deliveryExtraction(cronId: string, store: string, type: string): Promise<OnchSoldout[]> {
     // 브라우저 컨텍스트와 페이지를 구분하기 위한 고유 ID 생성
     const contextId = `context-${store}-${cronId}`;
     const pageId = `page-${store}-${cronId}`;
@@ -437,13 +431,8 @@ export class OnchCrawlerService {
 
       await onchPage.waitForLoadState('networkidle');
 
-      // 운송장 데이터 추출
-      return await this.waybillExtractionProvider.extractWaybillData(
-        onchPage,
-        lastCronTime,
-        type,
-        cronId,
-      );
+      // 운송 데이터 추출
+      return await this.deliveryExtractionProvider.extractDeliveryData(onchPage, type, cronId);
     } catch (error: any) {
       // 전체 프로세스 오류 처리
       console.error(

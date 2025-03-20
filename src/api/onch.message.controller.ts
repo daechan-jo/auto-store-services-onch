@@ -93,11 +93,10 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
         );
         return { status: 'success', data: automaticOrderingResult };
 
-      case 'waybillExtraction':
-        const waybillExtractionResult = await this.onchCrawlerService.waybillExtraction(
+      case 'deliveryExtraction':
+        const waybillExtractionResult = await this.onchCrawlerService.deliveryExtraction(
           payload.cronId,
           payload.store,
-          payload.lastCronTime,
           payload.type,
         );
         return { status: 'success', data: waybillExtractionResult };

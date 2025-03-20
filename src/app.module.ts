@@ -16,7 +16,7 @@ import { CrawlingOnchSoldoutProductsProvider } from './core/crawler/provider/cra
 import { CrawlOnchDetailProductsProvider } from './core/crawler/provider/crawlOnchDetailProducts.provider';
 import { CrawlOnchRegisteredProductsProvider } from './core/crawler/provider/crawlOnchRegisteredProducts.provider';
 import { DeleteProductsProvider } from './core/crawler/provider/deleteProducts.provider';
-import { WaybillExtractionProvider } from './core/crawler/provider/waybillExtraction.provider';
+import { DeliveryExtractionProvider } from './core/crawler/provider/deliveryExtraction.provider';
 import { MessageQueueProcessor } from './core/onch.queue.processor';
 import { OnchService } from './core/onch.service';
 import { OnchItemEntity } from './infrastructure/entities/onchItem.entity';
@@ -67,7 +67,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     CrawlOnchRegisteredProductsProvider,
     CrawlOnchDetailProductsProvider,
     AutomaticOrderingProvider,
-    WaybillExtractionProvider,
+    DeliveryExtractionProvider,
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
@@ -87,14 +87,9 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(true, 'chromium');
+      this.playwrightService.setConfig(false, 'chromium');
       await this.playwrightService.initializeBrowser();
-      // await this.onchCrawlerService.crawlingOnchSoldoutProducts(
-      //   '2025-03-18T11:43:17.366Z',
-      //   'linkedout',
-      //   'test',
-      //   CronType.SOLDOUT,
-      // );
+      await this.onchCrawlerService.waybillExtraction('test', 'linkedout', CronType.SOLDOUT);
     });
   }
 }
