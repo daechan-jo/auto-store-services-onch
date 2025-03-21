@@ -18,7 +18,6 @@ export class DeliveryExtractionProvider {
     while (hasNextPage) {
       // 현재 페이지 데이터 추출
       const pageData: DeliveryData[] = await this.extractCurrentPageData(onchPage);
-      console.log(JSON.stringify(pageData, null, 2));
 
       // 유효한 데이터가 없으면 페이지 탐색 종료
       if (pageData.length === 0) {
@@ -39,7 +38,6 @@ export class DeliveryExtractionProvider {
         hasNextPage = false;
       }
     }
-    console.log(JSON.stringify(onchResults, null, 2));
     return onchResults;
   }
 
@@ -76,8 +74,6 @@ export class DeliveryExtractionProvider {
         const content = el.innerHTML.split('<br>')[0];
         return content.trim();
       });
-      console.log(JSON.stringify(nameText, null, 2));
-      console.log(JSON.stringify(phoneText, null, 2));
 
       // 배송 상태 및 결제 방법 추출
       // const stateElement = item.locator('.prd_list_state div');

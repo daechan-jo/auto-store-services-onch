@@ -18,7 +18,6 @@ export class CrawlOnchRegisteredProductsProvider {
    * - 10페이지마다 진행 상황을 로깅
    */
   async crawlProductList(page: Page, cronId: string, type: string): Promise<string[]> {
-    console.log(`${type}${cronId}: 온채널 판매상품 리스트업 시작...`);
     const allProductIds = [];
     let currentPage = 1;
 
@@ -47,6 +46,7 @@ export class CrawlOnchRegisteredProductsProvider {
       }
 
       allProductIds.push(...productIds);
+
       currentPage++;
 
       if (currentPage % 10 === 0)

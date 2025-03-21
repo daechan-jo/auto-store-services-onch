@@ -1,4 +1,11 @@
-import { CoupangOrderInfo, OnchSoldout, CronType, OnchProduct } from '@daechanjo/models';
+import {
+  CoupangOrderInfo,
+  CronType,
+  OnchProduct,
+  DeliveryData,
+  OnchWithCoupangProduct,
+  CoupangPagingProduct,
+} from '@daechanjo/models';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
@@ -30,8 +37,7 @@ export class OnchCrawlerService {
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 삭제 작업을 수행할 스토어 이름
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
-   * @param matchedCoupangProducts - 쿠팡에서 품절된 상품 목록 배열
-   * @param matchedNaverProducts - 네이버에서 품절된 상품 목록 배열 (선택적)
+   * @param products - 삭제할 상품 배열
    *
    * @returns {Promise<void>} - 삭제 작업 완료 시 해결되는 Promise
    *
@@ -45,17 +51,13 @@ export class OnchCrawlerService {
     cronId: string,
     store: string,
     type: string,
-    matchedCoupangProducts: any[],
-    matchedNaverProducts?: any[],
+    products: OnchWithCoupangProduct[] | CoupangPagingProduct[],
   ): Promise<void> {
     console.log(`${type}${cronId}: 온채널 품절상품 삭제`);
     const contextId = `context-${store}-${cronId}`;
 
     // 상품 코드 추출
-    const productCodesArray = this.deleteProductsProvider.extractProductCodes(
-      matchedCoupangProducts,
-      matchedNaverProducts,
-    );
+    const productCodesArray = this.deleteProductsProvider.extractProductCodes(products);
     const totalProducts = productCodesArray.length;
 
     if (totalProducts === 0) {
@@ -176,6 +178,7 @@ export class OnchCrawlerService {
     const contextId = `context-${store}-${cronId}`;
 
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     console.log(`${type}${cronId}: 온채널 판매상품 리스트업 시작...`);
     const allProductIds = await this.crawlOnchRegisteredProductsProvider.crawlProductList(
@@ -413,7 +416,7 @@ export class OnchCrawlerService {
    * 4. 페이지네이션을 통해 모든 페이지의 데이터를 스크래핑
    * 5. 작업 완료 후 Playwright 컨텍스트 해제
    */
-  async deliveryExtraction(cronId: string, store: string, type: string): Promise<OnchSoldout[]> {
+  async deliveryExtraction(cronId: string, store: string, type: string): Promise<DeliveryData[]> {
     // 브라우저 컨텍스트와 페이지를 구분하기 위한 고유 ID 생성
     const contextId = `context-${store}-${cronId}`;
     const pageId = `page-${store}-${cronId}`;

@@ -63,8 +63,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
           payload.cronId,
           payload.store,
           payload.type,
-          payload.matchedCoupangProducts,
-          payload.matchedNaverProducts,
+          payload.products,
         );
         break;
 
