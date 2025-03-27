@@ -6,6 +6,7 @@ import {
   OnchWithCoupangProduct,
   CoupangPagingProduct,
 } from '@daechanjo/models';
+import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
@@ -51,7 +52,7 @@ export class OnchCrawlerService {
     cronId: string,
     store: string,
     type: string,
-    products: OnchWithCoupangProduct[] | CoupangPagingProduct[],
+    products: OnchWithCoupangProduct[] | CoupangPagingProduct[] | NaverChannelProduct[],
   ): Promise<void> {
     console.log(`${type}${cronId}: 온채널 품절상품 삭제`);
     const contextId = `context-${store}-${cronId}`;

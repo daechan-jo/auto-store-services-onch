@@ -25,4 +25,11 @@ export class OnchRepository {
     // return await this.dataSource.query('TRUNCATE TABLE "onch_product" CASCADE');
     return await this.onchRepository.delete({});
   }
+
+  async getProductByCode(productCode: string) {
+    return this.onchRepository.findOne({
+      where: { productCode: productCode },
+      relations: { onchItems: true },
+    });
+  }
 }

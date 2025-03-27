@@ -9,4 +9,8 @@ export class OnchService {
   async clearOnchProducts() {
     await this.onchRepository.clearOnchProducts();
   }
+
+  async getProductByCode(productCode: string) {
+    return this.onchRepository.getProductByCode(productCode);
+  }
 }

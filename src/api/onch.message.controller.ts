@@ -100,6 +100,10 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
         );
         return { status: 'success', data: waybillExtractionResult };
 
+      case 'getProductByCode':
+        const product = await this.onchService.getProductByCode(payload.externalVendorSkuCode);
+        return { status: 'success', data: product };
+
       default:
         console.error(
           `${CronType.ERROR}${payload.type}${payload.cronId}: 📬알 수 없는 패턴 유형 ${pattern}`,

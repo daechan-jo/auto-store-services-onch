@@ -1,4 +1,5 @@
 import { CoupangPagingProduct, CronType, Dialog, OnchWithCoupangProduct } from '@daechanjo/models';
+import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
@@ -18,7 +19,9 @@ export class DeleteProductsProvider {
    * - 네이버 상품에서는 sellerManagementCode 필드에서 코드를 추출
    * - Set 객체를 사용하여 중복 코드를 자동으로 제거
    */
-  extractProductCodes(deleteProducts: OnchWithCoupangProduct[] | CoupangPagingProduct[]): string[] {
+  extractProductCodes(
+    deleteProducts: OnchWithCoupangProduct[] | CoupangPagingProduct[] | NaverChannelProduct[],
+  ): string[] {
     const productCodesSet = new Set<string>();
 
     // 쿠팡 상품 코드 추출
@@ -33,6 +36,8 @@ export class DeleteProductsProvider {
         if (extractedCode) {
           productCodesSet.add(extractedCode);
         }
+      } else if ('sellerManagementCode' in product && product.sellerManagementCode) {
+        productCodesSet.add(product.sellerManagementCode.trim());
       }
     }
 
