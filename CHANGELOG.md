@@ -1,3 +1,5 @@
+## [1.0.1](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.0.0...v1.0.1) (2025-03-30)
+
 # 1.0.0 (2025-03-30)
 
 
