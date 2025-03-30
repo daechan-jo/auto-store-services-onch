@@ -319,84 +319,88 @@ export class OnchCrawlerService {
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
-      for (const order of newOrderProducts) {
-        for (const item of order.orderItems) {
-          const sellerProductName = item.sellerProductName;
-          const sellerProductItemName = item.sellerProductItemName; // 옵션명
-          const productCode = item.externalVendorSkuCode;
-          const vendorItemName = item.vendorItemName; // 상품 + 옵션 쏘 지저분
-          const exposedProductName = `${item.sellerProductName}, ${item.sellerProductItemName}`;
+      for (const [i, order] of newOrderProducts.entries()) {
+        const item = order.orderItems[0];
+        const sellerProductName = item.sellerProductName;
+        const sellerProductItemNames = order.orderItems.map((item) => item.sellerProductItemName); // 옵션명등
+        const productCode = item.externalVendorSkuCode;
+        const vendorItemName = item.vendorItemName; // 상품 + 옵션 쏘 지저분
+        // const exposedProductName = `${item.sellerProductName}, ${item.sellerProductItemName}`;
 
-          const productNameWithoutCode = sellerProductName.replace(/^\S+\s+/, '');
-          const combinedName = productNameWithoutCode + ', ' + sellerProductItemName;
+        const productNameWithoutCode = sellerProductName.replace(/^\S+\s+/, '');
 
-          console.log(`${type}${cronId}: ${vendorItemName}`);
-          console.log(`${type}${cronId}: ${exposedProductName} + ${item.shippingCount}`);
-          const isValid = vendorItemName.includes(combinedName);
+        // todo 중복 옵션인 경우도 처리..
+        if (sellerProductItemNames.length === 1) {
+          for (const itemName of sellerProductItemNames) {
+            const combinedName = productNameWithoutCode + ', ' + itemName;
 
-          if (!isValid) {
-            console.log(`❗️${type}${cronId}: 발주 확인 필요 ${vendorItemName} = ${combinedName}`);
-            continue;
+            console.log(`${type}${cronId}: ${i} 옵션명: ${vendorItemName}`);
+            console.log(`${type}${cronId}: ${i} ${combinedName}`);
+            const isValid = combinedName.includes(vendorItemName);
+            if (!isValid) {
+              console.log(`❗️${type}${cronId}: 발주 확인 필요 ${vendorItemName}`);
+              throw new Error();
+            }
           }
+        }
 
-          try {
-            // 상품검색
-            await this.automaticOrderingProvider.searchProduct(onchPage, productCode, cronId, type);
+        try {
+          // 상품검색
+          await this.automaticOrderingProvider.searchProduct(onchPage, productCode, cronId, type);
 
-            // 옵션설정
-            await this.automaticOrderingProvider.selectProductOption(
-              onchPage,
-              sellerProductItemName,
-              cronId,
-              type,
-            );
+          // 옵션설정
+          await this.automaticOrderingProvider.selectProductOption(
+            onchPage,
+            sellerProductItemNames,
+            cronId,
+            type,
+          );
 
-            // 수량설정
-            await this.automaticOrderingProvider.setProductQuantity(
-              onchPage,
-              item.shippingCount,
-              cronId,
-              type,
-            );
+          // 수량설정
+          await this.automaticOrderingProvider.setProductQuantity(
+            onchPage,
+            item.shippingCount,
+            cronId,
+            type,
+          );
 
-            // 주문 정보 입력
-            await this.automaticOrderingProvider.fillOrderDetails(onchPage, order, cronId, type);
+          // 주문 정보 입력
+          await this.automaticOrderingProvider.fillOrderDetails(onchPage, order, cronId, type);
 
-            // 주문 처리
-            const completeButtonSelector = '.btnOrderComplete';
-            onchPage.once('dialog', async (dialog) => {
-              await dialog.accept();
-            });
+          // 주문 처리
+          const completeButtonSelector = '.btnOrderComplete';
+          onchPage.once('dialog', async (dialog) => {
+            await dialog.accept();
+          });
 
-            await onchPage.click(completeButtonSelector);
-            await onchPage.waitForLoadState('networkidle');
+          await onchPage.click(completeButtonSelector);
+          await onchPage.waitForLoadState('networkidle');
 
-            await onchPage.goto('https://www.onch3.co.kr/index.php');
+          await onchPage.goto('https://www.onch3.co.kr/index.php');
 
-            results.push({
-              status: 'success',
-              orderId: order.orderId,
-              ordererName: order.orderer.name,
-              receiverName: order.receiver.name,
-              sellerProductName: item.sellerProductName,
-              sellerProductItemName: item.sellerProductItemName,
-              shippingCount: item.shippingCount,
-            });
-          } catch (error: any) {
-            results.push({
-              status: 'failed',
-              orderId: order.orderId,
-              ordererName: order.orderer.name,
-              receiverName: order.receiver.name,
-              productCode: productCode,
-              sellerProductName: item.sellerProductName,
-              sellerProductItemName: item.sellerProductItemName,
-              shippingCount: item.shippingCount,
-              safeNumber: order.receiver.safeNumber,
-              fullAddress: order.receiver.addr1 + order.receiver.addr2,
-              error: error.message,
-            });
-          }
+          results.push({
+            status: 'success',
+            orderId: order.orderId,
+            ordererName: order.orderer.name,
+            receiverName: order.receiver.name,
+            sellerProductName: item.sellerProductName,
+            sellerProductItemName: item.sellerProductItemName,
+            shippingCount: item.shippingCount,
+          });
+        } catch (error: any) {
+          results.push({
+            status: 'failed',
+            orderId: order.orderId,
+            ordererName: order.orderer.name,
+            receiverName: order.receiver.name,
+            productCode: productCode,
+            sellerProductName: item.sellerProductName,
+            sellerProductItemName: item.sellerProductItemName,
+            shippingCount: item.shippingCount,
+            safeNumber: order.receiver.safeNumber,
+            fullAddress: order.receiver.addr1 + order.receiver.addr2,
+            error: error.message,
+          });
         }
       }
       await this.playwrightService.releaseContext(contextId);

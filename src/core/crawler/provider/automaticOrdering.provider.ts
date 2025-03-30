@@ -39,19 +39,25 @@ export class AutomaticOrderingProvider {
     ]);
 
     // 주문 버튼 존재 확인
-    const orderButtonSelector = '.btn_order';
+    // const orderButtonSelector = '.btn_order';
 
-    try {
-      // 주문 버튼이 나타날 때까지 명시적으로 대기 (타임아웃 추가)
-      await page.waitForSelector(orderButtonSelector, { timeout: 5000 });
-    } catch (error) {
-      throw new Error(
-        `${CronType.ERROR}${CronType.ORDER}${cronId}: 제품 코드에 대한 주문 버튼을 찾을 수 없습니다: ${query}\n${error}`,
-      );
-    }
+    // <button class="btn_order">발주하기</button>
+    // body > div.content_wrap > section > div > div.prod_detail_btn > div.prd_btn_wrap > a:nth-child(3) > button
+
+    // try {
+    //   // 주문 버튼이 나타날 때까지 명시적으로 대기 (타임아웃 추가)
+    //   await page.waitForSelector(orderButtonSelector, { timeout: 5000 });
+    // } catch (error) {
+    //   throw new Error(
+    //     `${CronType.ERROR}${CronType.ORDER}${cronId}: 제품 코드에 대한 주문 버튼을 찾을 수 없습니다: ${query}\n${error}`,
+    //   );
+    // }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 주문 버튼 클릭 후 페이지 로드 대기
-    await Promise.all([page.waitForLoadState('networkidle'), page.click(orderButtonSelector)]);
+    // await Promise.all([page.waitForLoadState('networkidle'), page.click(orderButtonSelector)]);
+    await page.getByRole('button', { name: '발주하기' }).click();
 
     console.log(`${type}${cronId}: 발주 페이지 진입`);
   }
@@ -82,13 +88,19 @@ export class AutomaticOrderingProvider {
    */
   async selectProductOption(
     page: Page,
-    option: string,
+    options: string[],
     cronId: string,
     type: string,
   ): Promise<void> {
     console.log(`${type}${cronId}: 옵션 설정 시작`);
 
-    // 모든 옵션 텍스트를 추출하여 반환
+    await page
+      .waitForSelector('.selectOptionList', { state: 'visible', timeout: 1000 })
+      .catch(() => {
+        throw new Error(`${CronType.ERROR}${type}${cronId}: 옵션 선택을 찾을 수 없습니다.`);
+      });
+
+    // 모든 옵션 텍스트를 추출
     const allOptions = await page.evaluate(() => {
       const select = document.querySelector('.selectOptionList') as HTMLSelectElement;
       if (!select) return [];
@@ -96,41 +108,66 @@ export class AutomaticOrderingProvider {
       return Array.from(select.options).map((opt) => ({
         text: opt.textContent?.trim() || '',
         value: opt.value,
+        disabled: opt.disabled,
       }));
     });
-    //todo
-    await new Promise((resolve) => setTimeout(resolve, 100000));
-    // Node.js 환경에서 옵션 리스트 출력
-    console.log('사용 가능한 모든 옵션:');
-    allOptions.forEach((opt, index) => {
-      console.log(`${index}: "${opt.text}" (value: ${opt.value})`);
-    });
 
-    const normalizeText = (text: string) => text.replace(/\s+/g, '');
+    console.log(`${type}${cronId}: 찾은 옵션 개수: ${allOptions.length}`);
+    // await new Promise((resolve) => setTimeout(resolve, 100000));
 
-    // 옵션 찾기
-    const targetOption = allOptions.find(
-      (opt) =>
-        normalizeText(opt.text) === normalizeText(option) ||
-        normalizeText(opt.text).includes(normalizeText(option)),
-    );
+    for (const option of options) {
+      const normalizeText = (text: string) => text.replace(/\s+/g, '').toLowerCase();
+      const normalizedOption = normalizeText(option);
 
-    if (!targetOption) {
-      const errorMsg = `${CronType.ERROR}${type}${cronId}: 옵션을 찾을 수 없습니다 "${normalizeText(option)}"`;
-      console.error(errorMsg);
-      throw new Error(errorMsg);
+      // 옵션 찾기
+      const targetOption = allOptions.find(
+        (opt) =>
+          !opt.disabled &&
+          (normalizeText(opt.text) === normalizedOption ||
+            normalizeText(opt.text).includes(normalizedOption)),
+      );
+
+      if (!targetOption) {
+        const errorMsg = `${CronType.ERROR}${type}${cronId}: 옵션을 찾을 수 없습니다 "${option}"`;
+        console.error(errorMsg);
+        console.log(
+          `사용 가능한 옵션: ${allOptions
+            .filter((o) => !o.disabled)
+            .map((o) => o.text)
+            .join(', ')}`,
+        );
+        throw new Error(errorMsg);
+      }
+
+      console.log(
+        `${type}${cronId}: 선택할 옵션 - "${targetOption.text}" (값: ${targetOption.value})`,
+      );
+
+      // 플레이라이트의 내장 함수를 사용하여 옵션 선택
+      try {
+        // 방법 1: selectOption 메서드 사용
+        await page.selectOption('.selectOptionList', targetOption.value);
+
+        // 방법 2: 직접 클릭 후 옵션 클릭 (방법 1이 실패할 경우)
+        const isSelected = await page.evaluate((selectedValue) => {
+          const select = document.querySelector('.selectOptionList') as HTMLSelectElement;
+          return select && select.value === selectedValue;
+        }, targetOption.value);
+
+        if (!isSelected) {
+          await page.click('.selectOptionList');
+          await page.locator(`option[value="${targetOption.value}"]`).click();
+        }
+
+        // 이벤트 발생 확인을 위한 짧은 대기
+        await page.waitForTimeout(500);
+
+        console.log(`${type}${cronId}: "${targetOption.text}" 옵션 설정 완료`);
+      } catch (error) {
+        console.error(`${CronType.ERROR}${type}${cronId}: 옵션 선택 중 오류 발생`, error);
+        throw error;
+      }
     }
-
-    // 찾은 옵션 선택
-    await page.evaluate((optionValue) => {
-      const select = document.querySelector('.selectOptionList') as HTMLSelectElement;
-      if (!select) throw new Error('옵션 리스트를 찾을 수 없습니다.');
-
-      select.value = optionValue;
-      select.dispatchEvent(new Event('change'));
-    }, targetOption.value);
-
-    console.log(`${type}${cronId}: "${targetOption.text}" 옵션 설정 완료`);
   }
 
   /**
