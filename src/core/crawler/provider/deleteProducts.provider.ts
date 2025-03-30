@@ -1,4 +1,10 @@
-import { CoupangPagingProduct, CronType, Dialog, OnchWithCoupangProduct } from '@daechanjo/models';
+import {
+  CoupangComparisonWithOnchData,
+  CoupangPagingProduct,
+  CronType,
+  Dialog,
+  OnchWithCoupangProduct,
+} from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
 import { Injectable } from '@nestjs/common';
@@ -20,7 +26,11 @@ export class DeleteProductsProvider {
    * - Set 객체를 사용하여 중복 코드를 자동으로 제거
    */
   extractProductCodes(
-    deleteProducts: OnchWithCoupangProduct[] | CoupangPagingProduct[] | NaverChannelProduct[],
+    deleteProducts:
+      | OnchWithCoupangProduct[]
+      | CoupangPagingProduct[]
+      | NaverChannelProduct[]
+      | CoupangComparisonWithOnchData[],
   ): string[] {
     const productCodesSet = new Set<string>();
 
@@ -38,6 +48,8 @@ export class DeleteProductsProvider {
         }
       } else if ('sellerManagementCode' in product && product.sellerManagementCode) {
         productCodesSet.add(product.sellerManagementCode.trim());
+      } else if ('externalVendorSkuCode' in product && product.externalVendorSkuCode) {
+        productCodesSet.add(product.externalVendorSkuCode);
       }
     }
 

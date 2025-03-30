@@ -63,7 +63,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
           payload.cronId,
           payload.store,
           payload.type,
-          payload.products,
+          payload.data,
         );
         break;
 

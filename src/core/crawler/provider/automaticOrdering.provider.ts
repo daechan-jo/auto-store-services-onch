@@ -98,7 +98,8 @@ export class AutomaticOrderingProvider {
         value: opt.value,
       }));
     });
-
+    //todo
+    await new Promise((resolve) => setTimeout(resolve, 100000));
     // Node.js 환경에서 옵션 리스트 출력
     console.log('사용 가능한 모든 옵션:');
     allOptions.forEach((opt, index) => {

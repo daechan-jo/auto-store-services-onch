@@ -5,6 +5,7 @@ import {
   DeliveryData,
   OnchWithCoupangProduct,
   CoupangPagingProduct,
+  CoupangComparisonWithOnchData,
 } from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
@@ -38,7 +39,7 @@ export class OnchCrawlerService {
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 삭제 작업을 수행할 스토어 이름
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
-   * @param products - 삭제할 상품 배열
+   * @param data
    *
    * @returns {Promise<void>} - 삭제 작업 완료 시 해결되는 Promise
    *
@@ -52,17 +53,22 @@ export class OnchCrawlerService {
     cronId: string,
     store: string,
     type: string,
-    products: OnchWithCoupangProduct[] | CoupangPagingProduct[] | NaverChannelProduct[],
+    data:
+      | OnchWithCoupangProduct[]
+      | CoupangPagingProduct[]
+      | NaverChannelProduct[]
+      | CoupangComparisonWithOnchData[],
   ): Promise<void> {
     console.log(`${type}${cronId}: 온채널 품절상품 삭제`);
     const contextId = `context-${store}-${cronId}`;
 
     // 상품 코드 추출
-    const productCodesArray = this.deleteProductsProvider.extractProductCodes(products);
+    const productCodesArray = this.deleteProductsProvider.extractProductCodes(data);
     const totalProducts = productCodesArray.length;
 
     if (totalProducts === 0) {
       console.log(`${type}${cronId}: 삭제할 상품이 없습니다.`);
+      console.log(totalProducts);
       return;
     }
 
@@ -311,6 +317,7 @@ export class OnchCrawlerService {
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
     const results = []; // 발주 결과 저장 배열
 
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
       for (const order of newOrderProducts) {
         for (const item of order.orderItems) {
@@ -327,8 +334,10 @@ export class OnchCrawlerService {
           console.log(`${type}${cronId}: ${exposedProductName} + ${item.shippingCount}`);
           const isValid = vendorItemName.includes(combinedName);
 
-          if (!isValid)
+          if (!isValid) {
             console.log(`❗️${type}${cronId}: 발주 확인 필요 ${vendorItemName} = ${combinedName}`);
+            continue;
+          }
 
           try {
             // 상품검색
