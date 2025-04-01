@@ -386,6 +386,9 @@ export class OnchCrawlerService {
             sellerProductName: item.sellerProductName,
             sellerProductItemName: item.sellerProductItemName,
             shippingCount: item.shippingCount,
+            safeNumber: order.receiver.safeNumber,
+            fullAddress: order.receiver.addr1 + order.receiver.addr2,
+            error: null,
           });
         } catch (error: any) {
           results.push({
