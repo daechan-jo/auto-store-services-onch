@@ -1,6 +1,7 @@
-import { CronType } from '@daechanjo/models';
+import { CoupangOrder, CronType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
+import { CoupangOrderItem } from '@daechanjo/models/dist/interfaces/coupang/coupangOrderItem.interface';
 
 @Injectable()
 export class AutomaticOrderingProvider {
@@ -38,25 +39,9 @@ export class AutomaticOrderingProvider {
       page.keyboard.press('Enter'),
     ]);
 
-    // 주문 버튼 존재 확인
-    // const orderButtonSelector = '.btn_order';
-
-    // <button class="btn_order">발주하기</button>
-    // body > div.content_wrap > section > div > div.prod_detail_btn > div.prd_btn_wrap > a:nth-child(3) > button
-
-    // try {
-    //   // 주문 버튼이 나타날 때까지 명시적으로 대기 (타임아웃 추가)
-    //   await page.waitForSelector(orderButtonSelector, { timeout: 5000 });
-    // } catch (error) {
-    //   throw new Error(
-    //     `${CronType.ERROR}${CronType.ORDER}${cronId}: 제품 코드에 대한 주문 버튼을 찾을 수 없습니다: ${query}\n${error}`,
-    //   );
-    // }
-
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 주문 버튼 클릭 후 페이지 로드 대기
-    // await Promise.all([page.waitForLoadState('networkidle'), page.click(orderButtonSelector)]);
     await page.getByRole('button', { name: '발주하기' }).click();
 
     console.log(`${type}${cronId}: 발주 페이지 진입`);
@@ -66,7 +51,7 @@ export class AutomaticOrderingProvider {
    * 온채널 발주 페이지에서 주문할 상품의 옵션을 선택하는 메서드
    *
    * @param page - 작업을 수행할 Playwright 페이지 객체
-   * @param option - 선택할 옵션명 (쿠팡의 sellerProductItemName)
+   * @param items - 주문 아이템
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    *
@@ -88,7 +73,7 @@ export class AutomaticOrderingProvider {
    */
   async selectProductOption(
     page: Page,
-    options: string[],
+    items: CoupangOrderItem[],
     cronId: string,
     type: string,
   ): Promise<void> {
@@ -113,22 +98,25 @@ export class AutomaticOrderingProvider {
     });
 
     console.log(`${type}${cronId}: 찾은 옵션 개수: ${allOptions.length}`);
-    // await new Promise((resolve) => setTimeout(resolve, 100000));
 
-    for (const option of options) {
+    let previousSelectedCount = 0;
+
+    for (const item of items) {
       const normalizeText = (text: string) => text.replace(/\s+/g, '').toLowerCase();
-      const normalizedOption = normalizeText(option);
+
+      const optionParts = item.vendorItemName.split(',');
+      const rawItemOption = optionParts[optionParts.length - 1].trim();
+      const itemOption = normalizeText(rawItemOption);
 
       // 옵션 찾기
       const targetOption = allOptions.find(
         (opt) =>
           !opt.disabled &&
-          (normalizeText(opt.text) === normalizedOption ||
-            normalizeText(opt.text).includes(normalizedOption)),
+          (normalizeText(opt.text) === itemOption || normalizeText(opt.text).includes(itemOption)),
       );
 
       if (!targetOption) {
-        const errorMsg = `${CronType.ERROR}${type}${cronId}: 옵션을 찾을 수 없습니다 "${option}"`;
+        const errorMsg = `${CronType.ERROR}${type}${cronId}: 옵션을 찾을 수 없습니다 "${itemOption}"`;
         console.error(errorMsg);
         console.log(
           `사용 가능한 옵션: ${allOptions
@@ -142,6 +130,10 @@ export class AutomaticOrderingProvider {
       console.log(
         `${type}${cronId}: 선택할 옵션 - "${targetOption.text}" (값: ${targetOption.value})`,
       );
+
+      const currentSelectedCount = await page.evaluate(() => {
+        return document.querySelectorAll('.selectedOption li').length;
+      });
 
       // 플레이라이트의 내장 함수를 사용하여 옵션 선택
       try {
@@ -163,10 +155,64 @@ export class AutomaticOrderingProvider {
         await page.waitForTimeout(500);
 
         console.log(`${type}${cronId}: "${targetOption.text}" 옵션 설정 완료`);
+
+        // 새로 추가된 li 요소의 인덱스 계산 (1-based)
+        const newItemIndex = currentSelectedCount + 1;
+
+        // 추가: 해당 옵션의 수량 설정
+        const quantitySelector = `.selectedOption li:nth-child(${newItemIndex}) .optionQuantity`;
+        await this.setItemQuantity(page, quantitySelector, item.count, cronId, type);
+
+        // 항목 개수 업데이트
+        previousSelectedCount = newItemIndex;
       } catch (error) {
         console.error(`${CronType.ERROR}${type}${cronId}: 옵션 선택 중 오류 발생`, error);
         throw error;
       }
+    }
+  }
+
+  async setItemQuantity(
+    page: Page,
+    quantitySelector: string,
+    quantity: number,
+    cronId: string,
+    type: string,
+  ): Promise<void> {
+    if (!quantity || quantity <= 0) {
+      throw new Error(`${CronType.ERROR}${type}${cronId}: 유효하지 않은 발주 개수: ${quantity}`);
+    }
+
+    try {
+      const quantityField = await page.waitForSelector(quantitySelector, {
+        state: 'visible',
+        timeout: 5000,
+      });
+
+      await quantityField.click({ clickCount: 3 });
+
+      // 새 수량 값 입력
+      await quantityField.fill(quantity.toString());
+
+      // 값이 제대로 입력되었는지 확인
+      const actualValue = await page.$eval(
+        quantitySelector,
+        (el) => (el as HTMLInputElement).value,
+      );
+
+      if (actualValue !== quantity.toString()) {
+        console.log(`${type}${cronId}: 수량 재설정 시도 (예상: ${quantity}, 실제: ${actualValue})`);
+        await quantityField.click({ clickCount: 3 });
+        await quantityField.fill(quantity.toString());
+        await page.waitForTimeout(300); // 값이 적용될 시간 주기
+      }
+
+      console.log(`${type}${cronId}: 수량 ${quantity}개 설정 완료`);
+    } catch (error: any) {
+      if (error instanceof Error) {
+        throw new Error(`${CronType.ERROR}${type}${cronId}: 수량 설정 실패 - ${error.message}`);
+      }
+      throw error;
     }
   }
 
@@ -242,15 +288,17 @@ export class AutomaticOrderingProvider {
    *
    * 정보 입력 전 필수 필드(수취인 이름, 안심번호, 주소)가 존재하는지 검증합니다.
    */
-  async fillOrderDetails(page: Page, order: any, cronId: string, type: string): Promise<void> {
-    const receiver = order!.receiver;
-    // 수취인 정보 유효성 검사
-    if (!receiver.name || !receiver.safeNumber)
+  async fillOrderDetails(
+    page: Page,
+    order: CoupangOrder,
+    cronId: string,
+    type: string,
+  ): Promise<void> {
+    if (!order.receiverName || !order.receiverMobile)
       throw new Error(`${CronType.ERROR}${type}${cronId}: 수취인 정보를 찾을 수 없습니다.`);
 
     // 주소 정보 유효성 검사
-    const fullAddress = `${receiver.addr1 || ''} ${receiver.addr2 || ''}`.trim();
-    if (!receiver.postCode || !fullAddress) {
+    if (!order.postCode || !order.addr) {
       throw new Error(`${CronType.ERROR}${type}${cronId}: 수취인 주소를 찾을 수 없습니다.`);
     }
 
@@ -271,13 +319,13 @@ export class AutomaticOrderingProvider {
 
     // 각 필드에 데이터 입력
     // fill 메서드는 내부적으로 요소가 준비될 때까지 대기함
-    await nameField.fill(receiver.name);
-    await phoneField.fill(receiver.safeNumber);
-    await postcodeField.fill(receiver.postCode);
-    await addressField.fill(fullAddress);
+    await nameField.fill(order.receiverName);
+    await phoneField.fill(order.receiverMobile);
+    await postcodeField.fill(order.postCode);
+    await addressField.fill(order.addr);
 
     // 배송 메시지는 선택 사항이므로 null 또는 undefined 체크
-    const parcelMessage = order.parcelPrintMessage || '';
+    const parcelMessage = order.message || '';
     await commentField.fill(parcelMessage);
   }
 

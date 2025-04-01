@@ -1,11 +1,11 @@
 import {
-  CoupangOrderInfo,
   CronType,
   OnchProduct,
   DeliveryData,
   OnchWithCoupangProduct,
   CoupangPagingProduct,
   CoupangComparisonWithOnchData,
+  CoupangOrder,
 } from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
@@ -280,7 +280,7 @@ export class OnchCrawlerService {
    *
    * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 발주를 수행할 스토어 이름
-   * @param newOrderProducts - 발주할 쿠팡 주문 정보 배열
+   * @param orders - 발주할 쿠팡 주문 정보 배열
    * @param type - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<Array>} - 각 주문 항목별 발주 결과 객체를 포함하는 배열을 반환하는 Promise
@@ -308,9 +308,9 @@ export class OnchCrawlerService {
    */
   async automaticOrdering(
     cronId: string,
-    store: string,
-    newOrderProducts: CoupangOrderInfo[],
     type: string,
+    store: string,
+    orders: CoupangOrder[],
   ): Promise<Array<any>> {
     const contextId = `context-${store}-${cronId}`;
     const pageId = `page-${store}-${cronId}`;
@@ -319,30 +319,13 @@ export class OnchCrawlerService {
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
-      for (const [i, order] of newOrderProducts.entries()) {
-        const item = order.orderItems[0];
-        const sellerProductName = item.sellerProductName;
-        const sellerProductItemNames = order.orderItems.map((item) => item.sellerProductItemName); // 옵션명등
-        const productCode = item.externalVendorSkuCode;
-        const vendorItemName = item.vendorItemName; // 상품 + 옵션 쏘 지저분
-        // const exposedProductName = `${item.sellerProductName}, ${item.sellerProductItemName}`;
-
-        const productNameWithoutCode = sellerProductName.replace(/^\S+\s+/, '');
-
-        // todo 중복 옵션인 경우도 처리..
-        if (sellerProductItemNames.length === 1) {
-          for (const itemName of sellerProductItemNames) {
-            const combinedName = productNameWithoutCode + ', ' + itemName;
-
-            console.log(`${type}${cronId}: ${i} 옵션명: ${vendorItemName}`);
-            console.log(`${type}${cronId}: ${i} ${combinedName}`);
-            const isValid = combinedName.includes(vendorItemName);
-            if (!isValid) {
-              console.log(`❗️${type}${cronId}: 발주 확인 필요 ${vendorItemName}`);
-              throw new Error();
-            }
-          }
-        }
+      for (const [i, order] of orders.entries()) {
+        const productCode = order.items[0].vendorInventoryItemName.split(' ')[0];
+        const productName = order.items[0].vendorInventoryItemName.split(',')[0];
+        const options = order.items.map((item) => {
+          const part = item.vendorItemName.split(',');
+          return part[part.length - 1].trim();
+        });
 
         try {
           // 상품검색
@@ -351,15 +334,7 @@ export class OnchCrawlerService {
           // 옵션설정
           await this.automaticOrderingProvider.selectProductOption(
             onchPage,
-            sellerProductItemNames,
-            cronId,
-            type,
-          );
-
-          // 수량설정
-          await this.automaticOrderingProvider.setProductQuantity(
-            onchPage,
-            item.shippingCount,
+            order.items,
             cronId,
             type,
           );
@@ -381,27 +356,27 @@ export class OnchCrawlerService {
           results.push({
             status: 'success',
             orderId: order.orderId,
-            ordererName: order.orderer.name,
-            receiverName: order.receiver.name,
-            sellerProductName: item.sellerProductName,
-            sellerProductItemName: item.sellerProductItemName,
-            shippingCount: item.shippingCount,
-            safeNumber: order.receiver.safeNumber,
-            fullAddress: order.receiver.addr1 + order.receiver.addr2,
+            ordererName: order.memberName,
+            receiverName: order.receiverName,
+            sellerProductName: productName,
+            sellerProductItemName: options,
+            shippingCount: order.items,
+            safeNumber: order.receiverMobile,
+            fullAddress: order.addr,
             error: null,
           });
         } catch (error: any) {
           results.push({
             status: 'failed',
             orderId: order.orderId,
-            ordererName: order.orderer.name,
-            receiverName: order.receiver.name,
             productCode: productCode,
-            sellerProductName: item.sellerProductName,
-            sellerProductItemName: item.sellerProductItemName,
-            shippingCount: item.shippingCount,
-            safeNumber: order.receiver.safeNumber,
-            fullAddress: order.receiver.addr1 + order.receiver.addr2,
+            ordererName: order.memberName,
+            receiverName: order.receiverName,
+            sellerProductName: productName,
+            sellerProductItemName: options,
+            shippingCount: order.items,
+            safeNumber: order.receiverMobile,
+            fullAddress: order.addr,
             error: error.message,
           });
         }

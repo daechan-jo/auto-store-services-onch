@@ -86,9 +86,9 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
       case 'automaticOrdering':
         const automaticOrderingResult = await this.onchCrawlerService.automaticOrdering(
           payload.cronId,
-          payload.store,
-          payload.newOrderProducts,
           payload.type,
+          payload.store,
+          payload.orders,
         );
         return { status: 'success', data: automaticOrderingResult };
 
