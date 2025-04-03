@@ -1,4 +1,4 @@
-import { CoupangOrder, CronType } from '@daechanjo/models';
+import { CoupangOrder, JobType } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
 import { CoupangOrderItem } from '@daechanjo/models/dist/interfaces/coupang/coupangOrderItem.interface';
@@ -10,8 +10,8 @@ export class AutomaticOrderingProvider {
    *
    * @param page - 작업을 수행할 Playwright 페이지 객체
    * @param query - 검색할 상품 코드
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 검색 및 발주 페이지 이동이 완료되면 해결되는 Promise
    *
@@ -27,8 +27,8 @@ export class AutomaticOrderingProvider {
    *
    * 검색 결과에서 주문 버튼을 찾을 수 없는 경우 오류를 발생시킵니다.
    */
-  async searchProduct(page: Page, query: string, cronId: string, type: string): Promise<void> {
-    console.log(`${type}${cronId}: 상품 검색 시작`);
+  async searchProduct(page: Page, query: string, jobId: string, jobType: string): Promise<void> {
+    console.log(`${jobType}${jobId}: 상품 검색 시작`);
 
     // page.type() 대신 권장되는 page.fill() 사용
     await page.fill('#prd_sear_txt', query);
@@ -44,7 +44,7 @@ export class AutomaticOrderingProvider {
     // 주문 버튼 클릭 후 페이지 로드 대기
     await page.getByRole('button', { name: '발주하기' }).click();
 
-    console.log(`${type}${cronId}: 발주 페이지 진입`);
+    console.log(`${jobType}${jobId}: 발주 페이지 진입`);
   }
 
   /**
@@ -52,8 +52,8 @@ export class AutomaticOrderingProvider {
    *
    * @param page - 작업을 수행할 Playwright 페이지 객체
    * @param items - 주문 아이템
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 옵션 선택이 완료되면 해결되는 Promise
    *
@@ -74,15 +74,15 @@ export class AutomaticOrderingProvider {
   async selectProductOption(
     page: Page,
     items: CoupangOrderItem[],
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<void> {
-    console.log(`${type}${cronId}: 옵션 설정 시작`);
+    console.log(`${jobType}${jobId}: 옵션 설정 시작`);
 
     await page
       .waitForSelector('.selectOptionList', { state: 'visible', timeout: 1000 })
       .catch(() => {
-        throw new Error(`${CronType.ERROR}${type}${cronId}: 옵션 선택을 찾을 수 없습니다.`);
+        throw new Error(`${JobType.ERROR}${jobType}${jobId}: 옵션 선택을 찾을 수 없습니다.`);
       });
 
     // 모든 옵션 텍스트를 추출
@@ -97,7 +97,7 @@ export class AutomaticOrderingProvider {
       }));
     });
 
-    console.log(`${type}${cronId}: 찾은 옵션 개수: ${allOptions.length}`);
+    console.log(`${jobType}${jobId}: 찾은 옵션 개수: ${allOptions.length}`);
 
     let previousSelectedCount = 0;
 
@@ -116,7 +116,7 @@ export class AutomaticOrderingProvider {
       );
 
       if (!targetOption) {
-        const errorMsg = `${CronType.ERROR}${type}${cronId}: 옵션을 찾을 수 없습니다 "${itemOption}"`;
+        const errorMsg = `${JobType.ERROR}${jobType}${jobId}: 옵션을 찾을 수 없습니다 "${itemOption}"`;
         console.error(errorMsg);
         console.log(
           `사용 가능한 옵션: ${allOptions
@@ -128,7 +128,7 @@ export class AutomaticOrderingProvider {
       }
 
       console.log(
-        `${type}${cronId}: 선택할 옵션 - "${targetOption.text}" (값: ${targetOption.value})`,
+        `${jobType}${jobId}: 선택할 옵션 - "${targetOption.text}" (값: ${targetOption.value})`,
       );
 
       const currentSelectedCount = await page.evaluate(() => {
@@ -154,19 +154,19 @@ export class AutomaticOrderingProvider {
         // 이벤트 발생 확인을 위한 짧은 대기
         await page.waitForTimeout(500);
 
-        console.log(`${type}${cronId}: "${targetOption.text}" 옵션 설정 완료`);
+        console.log(`${jobType}${jobId}: "${targetOption.text}" 옵션 설정 완료`);
 
         // 새로 추가된 li 요소의 인덱스 계산 (1-based)
         const newItemIndex = currentSelectedCount + 1;
 
         // 추가: 해당 옵션의 수량 설정
         const quantitySelector = `.selectedOption li:nth-child(${newItemIndex}) .optionQuantity`;
-        await this.setItemQuantity(page, quantitySelector, item.count, cronId, type);
+        await this.setItemQuantity(page, quantitySelector, item.count, jobId, jobType);
 
         // 항목 개수 업데이트
         previousSelectedCount = newItemIndex;
       } catch (error) {
-        console.error(`${CronType.ERROR}${type}${cronId}: 옵션 선택 중 오류 발생`, error);
+        console.error(`${JobType.ERROR}${jobType}${jobId}: 옵션 선택 중 오류 발생`, error);
         throw error;
       }
     }
@@ -176,11 +176,11 @@ export class AutomaticOrderingProvider {
     page: Page,
     quantitySelector: string,
     quantity: number,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<void> {
     if (!quantity || quantity <= 0) {
-      throw new Error(`${CronType.ERROR}${type}${cronId}: 유효하지 않은 발주 개수: ${quantity}`);
+      throw new Error(`${JobType.ERROR}${jobType}${jobId}: 유효하지 않은 발주 개수: ${quantity}`);
     }
 
     try {
@@ -201,16 +201,18 @@ export class AutomaticOrderingProvider {
       );
 
       if (actualValue !== quantity.toString()) {
-        console.log(`${type}${cronId}: 수량 재설정 시도 (예상: ${quantity}, 실제: ${actualValue})`);
+        console.log(
+          `${jobType}${jobId}: 수량 재설정 시도 (예상: ${quantity}, 실제: ${actualValue})`,
+        );
         await quantityField.click({ clickCount: 3 });
         await quantityField.fill(quantity.toString());
         await page.waitForTimeout(300); // 값이 적용될 시간 주기
       }
 
-      console.log(`${type}${cronId}: 수량 ${quantity}개 설정 완료`);
+      console.log(`${jobType}${jobId}: 수량 ${quantity}개 설정 완료`);
     } catch (error: any) {
       if (error instanceof Error) {
-        throw new Error(`${CronType.ERROR}${type}${cronId}: 수량 설정 실패 - ${error.message}`);
+        throw new Error(`${JobType.ERROR}${jobType}${jobId}: 수량 설정 실패 - ${error.message}`);
       }
       throw error;
     }
@@ -221,8 +223,8 @@ export class AutomaticOrderingProvider {
    *
    * @param page - Playwright Page 객체
    * @param quantity - 설정할 상품 수량
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 수량 설정 작업이 완료되면 resolve되는 Promise
    *
@@ -238,11 +240,11 @@ export class AutomaticOrderingProvider {
   async setProductQuantity(
     page: Page,
     quantity: number,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<void> {
     if (!quantity)
-      throw new Error(`${CronType.ERROR}${type}${cronId}: 발주 개수를 찾을 수 없습니다.`);
+      throw new Error(`${JobType.ERROR}${jobType}${jobId}: 발주 개수를 찾을 수 없습니다.`);
 
     const optionQuantitySelector = '.optionQuantity';
 
@@ -260,7 +262,7 @@ export class AutomaticOrderingProvider {
       await page.waitForTimeout(200);
     } catch (error: any) {
       if (error instanceof Error) {
-        throw new Error(`${CronType.ERROR}${type}${cronId}: 수량 설정 실패 - ${error.message}`);
+        throw new Error(`${JobType.ERROR}${jobType}${jobId}: 수량 설정 실패 - ${error.message}`);
       }
       throw error;
     }
@@ -271,8 +273,8 @@ export class AutomaticOrderingProvider {
    *
    * @param page - Playwright Page 객체
    * @param order - 쿠팡에서 받은 주문 정보 객체
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 주문 상세 정보 입력이 완료되면 resolve되는 Promise
    *
@@ -291,15 +293,15 @@ export class AutomaticOrderingProvider {
   async fillOrderDetails(
     page: Page,
     order: CoupangOrder,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<void> {
     if (!order.receiverName || !order.receiverMobile)
-      throw new Error(`${CronType.ERROR}${type}${cronId}: 수취인 정보를 찾을 수 없습니다.`);
+      throw new Error(`${JobType.ERROR}${jobType}${jobId}: 수취인 정보를 찾을 수 없습니다.`);
 
     // 주소 정보 유효성 검사
     if (!order.postCode || !order.addr) {
-      throw new Error(`${CronType.ERROR}${type}${cronId}: 수취인 주소를 찾을 수 없습니다.`);
+      throw new Error(`${JobType.ERROR}${jobType}${jobId}: 수취인 주소를 찾을 수 없습니다.`);
     }
 
     const nameField = page.locator('input.orderName');
@@ -335,8 +337,8 @@ export class AutomaticOrderingProvider {
    * @param page - Playwright Page 객체
    * @param item - 현재 처리 중인 주문 항목 정보 (상품명, 발송 수량 등)
    * @param order - 주문의 상위 정보 (주문 ID 등)
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<Object>} - 주문 처리 결과 객체를 반환하는 Promise
    *                             성공 시: {status: 'success', orderId, sellerProductName, shippingCount}
@@ -354,8 +356,8 @@ export class AutomaticOrderingProvider {
     page: Page,
     item: any,
     order: any,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<any> {
     const completeButton = page.locator('.btnOrderComplete');
     await completeButton.waitFor({ state: 'visible' });
@@ -363,7 +365,7 @@ export class AutomaticOrderingProvider {
     // 확인 대화상자가 표시될 때 자동으로 수락하도록 이벤트 리스너 설정
     // 이벤트 리스너는 단 한 번만 실행되도록 once 사용
     page.once('dialog', async (dialog) => {
-      console.log(`${type}${cronId}: 확인 대화상자 "${dialog.message()}" 자동 수락`);
+      console.log(`${jobType}${jobId}: 확인 대화상자 "${dialog.message()}" 자동 수락`);
       await dialog.accept();
     });
 

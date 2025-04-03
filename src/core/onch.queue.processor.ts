@@ -1,7 +1,5 @@
-import { CronType } from '@daechanjo/models';
 import { Processor, Process } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
-import { Job } from 'bull';
 
 import { OnchCrawlerService } from './crawler/onch.crawler.service';
 

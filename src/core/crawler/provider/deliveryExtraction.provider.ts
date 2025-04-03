@@ -1,4 +1,4 @@
-import { CronType, DeliveryData } from '@daechanjo/models';
+import { JobType, DeliveryData } from '@daechanjo/models';
 import { Injectable } from '@nestjs/common';
 import { Page } from 'playwright';
 
@@ -9,7 +9,11 @@ export class DeliveryExtractionProvider {
   /**
    * 운송장 데이터 추출 (페이지네이션 처리 포함)
    */
-  async extractDeliveryData(onchPage: Page, type: string, cronId: string): Promise<DeliveryData[]> {
+  async extractDeliveryData(
+    onchPage: Page,
+    jobType: string,
+    jobId: string,
+  ): Promise<DeliveryData[]> {
     let onchResults: DeliveryData[] = [];
     let currentPage = 1;
     let hasNextPage = true;
@@ -21,7 +25,7 @@ export class DeliveryExtractionProvider {
 
       // 유효한 데이터가 없으면 페이지 탐색 종료
       if (pageData.length === 0) {
-        console.log(`${type}${cronId}: 더 이상 유효한 데이터가 없습니다. 루프를 종료합니다.`);
+        console.log(`${jobType}${jobId}: 더 이상 유효한 데이터가 없습니다. 루프를 종료합니다.`);
 
         break;
       }
@@ -30,7 +34,7 @@ export class DeliveryExtractionProvider {
       onchResults = onchResults.concat(pageData);
 
       // 다음 페이지로 이동 시도
-      const movedToNextPage = await this.moveToNextPage(onchPage, currentPage, type, cronId);
+      const movedToNextPage = await this.moveToNextPage(onchPage, currentPage, jobType, jobId);
 
       if (movedToNextPage) {
         currentPage++;
@@ -107,19 +111,19 @@ export class DeliveryExtractionProvider {
   private async moveToNextPage(
     onchPage: Page,
     currentPage: number,
-    type: string,
-    cronId: string,
+    jobType: string,
+    jobId: string,
   ): Promise<boolean> {
     // 다음 페이지 링크 확인
     const nextPageSelector = `.prd_list_bottom a[href*="page=${currentPage + 1}"]`;
     const nextPageLink = await onchPage.$(nextPageSelector);
 
     if (!nextPageLink) {
-      console.log(`${type}${cronId}: 더 이상 페이지가 없습니다.`);
+      console.log(`${jobType}${jobId}: 더 이상 페이지가 없습니다.`);
       return false;
     }
 
-    console.log(`${type}${cronId}: 페이지 ${currentPage + 1}로 이동 중...`);
+    console.log(`${jobType}${jobId}: 페이지 ${currentPage + 1}로 이동 중...`);
 
     // Playwright에서는 waitForNavigation과 click을 함께 사용하는 것이 권장됨
     try {
@@ -134,7 +138,7 @@ export class DeliveryExtractionProvider {
       return true;
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 페이지 ${currentPage + 1}로 이동 실패`,
+        `${JobType.ERROR}${jobType}${jobId}: 페이지 ${currentPage + 1}로 이동 실패`,
         error.response?.data || error.message,
       );
       return false;

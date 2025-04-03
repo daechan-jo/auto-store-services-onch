@@ -7,8 +7,8 @@ export class CrawlOnchRegisteredProductsProvider {
    * 온채널 관리자 사이트의 상품 목록 페이지를 페이지네이션하며 상품 ID를 추출합니다.
    *
    * @param page - Playwright 페이지 객체
-   * @param cronId - 크론 작업 ID
-   * @param type - 로그 유형
+   * @param jobId - 크론 작업 ID
+   * @param jobType - 로그 유형
    * @returns {Promise<string[]>} - 추출된 모든 상품 ID 배열
    *
    * @description
@@ -17,7 +17,7 @@ export class CrawlOnchRegisteredProductsProvider {
    * - 빈 페이지가 나올 때까지 크롤링 계속 진행
    * - 10페이지마다 진행 상황을 로깅
    */
-  async crawlProductList(page: Page, cronId: string, type: string): Promise<string[]> {
+  async crawlProductList(page: Page, jobId: string, jobType: string): Promise<string[]> {
     const allProductIds = [];
     let currentPage = 1;
 
@@ -41,7 +41,7 @@ export class CrawlOnchRegisteredProductsProvider {
 
       // 상품 ID가 없으면 크롤링 중지
       if (productIds.length === 0) {
-        console.log(`${type}${cronId}: 크롤링 중지 마지막 페이지-${currentPage}`);
+        console.log(`${jobType}${jobId}: 크롤링 중지 마지막 페이지-${currentPage}`);
         break;
       }
 
@@ -51,11 +51,11 @@ export class CrawlOnchRegisteredProductsProvider {
 
       if (currentPage % 10 === 0)
         console.log(
-          `${type}${cronId}: 진행중... 현재 ${currentPage}페이지, ${allProductIds.length}개 수집됨`,
+          `${jobType}${jobId}: 진행중... 현재 ${currentPage}페이지, ${allProductIds.length}개 수집됨`,
         );
     }
 
-    console.log(`${type}${cronId}: 온채널 판매상품 리스트업 완료 ${allProductIds.length} 개`);
+    console.log(`${jobType}${jobId}: 온채널 판매상품 리스트업 완료 ${allProductIds.length} 개`);
     return allProductIds;
   }
 }

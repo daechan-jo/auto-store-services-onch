@@ -1,4 +1,4 @@
-import { CronType } from '@daechanjo/models';
+import { JobType } from '@daechanjo/models';
 import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
 import { UtilModule } from '@daechanjo/util';

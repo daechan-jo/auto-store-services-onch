@@ -1,8 +1,7 @@
 import {
   CoupangComparisonWithOnchData,
   CoupangPagingProduct,
-  CronType,
-  Dialog,
+  JobType,
   OnchWithCoupangProduct,
 } from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
@@ -61,9 +60,9 @@ export class DeleteProductsProvider {
    * 배치 단위로 상품 삭제 작업을 수행합니다.
    *
    * @param contextId - Playwright 컨텍스트 ID
-   * @param cronId - 크론 작업 ID
+   * @param jobId - 크론 작업 ID
    * @param store - 스토어 이름
-   * @param type - 작업 유형
+   * @param jobType - 작업 유형
    * @param productCodes - 삭제할 상품 코드 배열
    * @returns 성공 및 실패 카운트를 포함한 객체
    *
@@ -74,9 +73,9 @@ export class DeleteProductsProvider {
    */
   async performBatchDeletion(
     contextId: string,
-    cronId: string,
+    jobId: string,
     store: string,
-    type: string,
+    jobType: string,
     productCodes: string[],
   ): Promise<{ successCount: number; failedCount: number }> {
     const PARALLEL_WORKERS = 2; // 동시에 실행할 작업자(페이지) 수
@@ -90,7 +89,7 @@ export class DeleteProductsProvider {
 
     try {
       // 최초 로그인
-      const firstPageId = `page-${store}-${cronId}-0`;
+      const firstPageId = `page-${store}-${jobId}-0`;
       pageIds.push(firstPageId);
       const firstPage = await this.playwrightService.loginToOnchSite(store, contextId, firstPageId);
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -98,7 +97,7 @@ export class DeleteProductsProvider {
 
       // 추가 작업자(페이지) 생성
       for (let i = 0; i < PARALLEL_WORKERS - 1; i++) {
-        const pageId = `page-${store}-${cronId}-${i + 1}`;
+        const pageId = `page-${store}-${jobId}-${i + 1}`;
         pageIds.push(pageId);
         const page = await this.playwrightService.createPage(contextId, pageId);
         pages.push(page);
@@ -125,8 +124,8 @@ export class DeleteProductsProvider {
             contextId,
             pageIds[index],
             batch,
-            cronId,
-            type,
+            jobId,
+            jobType,
             pages[index],
           );
 
@@ -141,7 +140,7 @@ export class DeleteProductsProvider {
       await Promise.all(workerPromises);
 
       console.log(
-        `${type}${cronId}: 완료 - 성공: ${successCount}, 실패: ${failedCount}, 총 상품 수: ${totalProducts}`,
+        `${jobType}${jobId}: 완료 - 성공: ${successCount}, 실패: ${failedCount}, 총 상품 수: ${totalProducts}`,
       );
     } finally {
       // 모든 작업이 끝난 후 페이지 리소스 해제
@@ -160,8 +159,8 @@ export class DeleteProductsProvider {
    * @param contextId - Playwright 컨텍스트 ID
    * @param pageId - 페이지 ID
    * @param productCodes - 삭제할 상품 코드 배열
-   * @param cronId - 크론 작업 ID
-   * @param type - 작업 유형
+   * @param jobId - 크론 작업 ID
+   * @param jobType - 작업 유형
    * @param page - Playwright 페이지 객체
    * @returns 성공 및 실패 카운트를 포함한 객체
    */
@@ -170,8 +169,8 @@ export class DeleteProductsProvider {
     contextId: string,
     pageId: string,
     productCodes: string[],
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     page: Page,
   ): Promise<{ successCount: number; failedCount: number }> {
     let successCount = 0;
@@ -185,8 +184,8 @@ export class DeleteProductsProvider {
           contextId,
           pageId,
           productCode,
-          cronId,
-          type,
+          jobId,
+          jobType,
           page,
         );
 
@@ -199,11 +198,14 @@ export class DeleteProductsProvider {
         if (i % Math.ceil(productCodes.length / 10) === 0) {
           const progressPercentage = ((i + 1) / productCodes.length) * 100;
           console.log(
-            `${type}${cronId}: ${pageId} - 상품 처리 중 ${i + 1}/${productCodes.length} (${progressPercentage.toFixed(2)}%)`,
+            `${jobType}${jobId}: ${pageId} - 상품 처리 중 ${i + 1}/${productCodes.length} (${progressPercentage.toFixed(2)}%)`,
           );
         }
       } catch (error) {
-        console.error(`${type}${cronId} - ${pageId}: 상품 ${productCode} 처리 중 오류 발생`, error);
+        console.error(
+          `${jobType}${jobId} - ${pageId}: 상품 ${productCode} 처리 중 오류 발생`,
+          error,
+        );
         failedCount++;
       }
     }
@@ -215,10 +217,10 @@ export class DeleteProductsProvider {
    * 대화상자 이벤트 핸들러를 설정합니다.
    *
    * @param page - Playwright 페이지 객체
-   * @param cronId - 크론 작업 ID
-   * @param type - 작업 유형
+   * @param jobId - 크론 작업 ID
+   * @param jobType - 작업 유형
    */
-  private setupDialogHandler(page: Page, cronId: string, type: string): void {
+  private setupDialogHandler(page: Page, jobId: string, jobType: string): void {
     // 기존 대화상자 리스너 제거 (중복 처리 방지)
     page.removeAllListeners('dialog');
 
@@ -230,7 +232,7 @@ export class DeleteProductsProvider {
         // 대화상자 수락
         await dialog.accept();
       } catch (error: any) {
-        console.error(`${type}${cronId}: 대화상자 처리 실패 - ${error.message}`);
+        console.error(`${jobType}${jobId}: 대화상자 처리 실패 - ${error.message}`);
       }
     });
   }
@@ -242,8 +244,8 @@ export class DeleteProductsProvider {
    * @param contextId - Playwright 컨텍스트 ID
    * @param pageId - 페이지 ID
    * @param productCode - 삭제할 상품 코드
-   * @param cronId - 크론 작업 ID
-   * @param type - 작업 유형
+   * @param jobId - 크론 작업 ID
+   * @param jobType - 작업 유형
    * @param existingPage - (선택적) 이미 생성된 페이지
    * @returns 성공 여부 (boolean)
    *
@@ -257,8 +259,8 @@ export class DeleteProductsProvider {
     contextId: string,
     pageId: string,
     productCode: string,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     existingPage?: Page,
   ): Promise<boolean> {
     let onchPage: Page | undefined;
@@ -273,7 +275,7 @@ export class DeleteProductsProvider {
       }
 
       if (!onchPage) {
-        console.error(`${type}${cronId}: 페이지 생성 실패 - 상품 "${productCode}"`);
+        console.error(`${jobType}${jobId}: 페이지 생성 실패 - 상품 "${productCode}"`);
         return false;
       }
 
@@ -282,14 +284,14 @@ export class DeleteProductsProvider {
         await onchPage.waitForLoadState('networkidle', { timeout: 10000 });
       } catch (e) {
         console.warn(
-          `${type}${cronId}: 페이지 로드 타임아웃 - 상품 "${productCode}", 계속 진행합니다`,
+          `${jobType}${jobId}: 페이지 로드 타임아웃 - 상품 "${productCode}", 계속 진행합니다`,
         );
       }
 
       await onchPage.waitForTimeout(1000);
 
       // 대화상자 처리 핸들러 설정
-      this.setupDialogHandler(onchPage, cronId, type);
+      this.setupDialogHandler(onchPage, jobId, jobType);
 
       // 상품 페이지로 이동
       try {
@@ -299,7 +301,7 @@ export class DeleteProductsProvider {
         });
       } catch (e) {
         console.warn(
-          `${type}${cronId}: 페이지 이동 타임아웃 - 상품 "${productCode}", 계속 진행합니다`,
+          `${jobType}${jobId}: 페이지 이동 타임아웃 - 상품 "${productCode}", 계속 진행합니다`,
         );
       }
 
@@ -314,7 +316,7 @@ export class DeleteProductsProvider {
         await deleteButton.waitFor({ state: 'visible', timeout: 5000 });
         hasDeleteButton = (await deleteButton.count()) > 0;
       } catch (e) {
-        console.warn(`${type}${cronId}: 삭제 버튼 없음 - 상품 "${productCode}"`);
+        console.warn(`${jobType}${jobId}: 삭제 버튼 없음 - 상품 "${productCode}"`);
         hasDeleteButton = false;
       }
 
@@ -328,16 +330,16 @@ export class DeleteProductsProvider {
 
           return true;
         } catch (e) {
-          console.error(`${type}${cronId}: 삭제 버튼 클릭 실패 - 상품 "${productCode}"`, e);
+          console.error(`${jobType}${jobId}: 삭제 버튼 클릭 실패 - 상품 "${productCode}"`, e);
           return false;
         }
       } else {
-        console.log(`${type}${cronId}: 상품 "${productCode}"에 대한 삭제 버튼을 찾을 수 없음`);
+        console.log(`${jobType}${jobId}: 상품 "${productCode}"에 대한 삭제 버튼을 찾을 수 없음`);
         return false;
       }
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 상품 "${productCode}" 삭제 중 오류 발생\n`,
+        `${JobType.ERROR}${jobType}${jobId}: 상품 "${productCode}" 삭제 중 오류 발생\n`,
         error.message,
       );
       return false;
@@ -346,7 +348,7 @@ export class DeleteProductsProvider {
         try {
           await this.playwrightService.releasePage(pageId);
         } catch (e) {
-          console.error(`${type}${cronId}: 페이지 릴리즈 실패 - ${pageId}`, e);
+          console.error(`${jobType}${jobId}: 페이지 릴리즈 실패 - ${pageId}`, e);
         }
       }
     }

@@ -1,5 +1,5 @@
 import {
-  CronType,
+  JobType,
   OnchProduct,
   DeliveryData,
   OnchWithCoupangProduct,
@@ -36,9 +36,9 @@ export class OnchCrawlerService {
   /**
    * 쿠팡과 네이버 플랫폼에서 품절된 상품을 온채널에서 삭제합니다.
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 삭제 작업을 수행할 스토어 이름
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    * @param data
    *
    * @returns {Promise<void>} - 삭제 작업 완료 시 해결되는 Promise
@@ -50,43 +50,43 @@ export class OnchCrawlerService {
    * 3. 진행 상황 및 결과를 로깅
    */
   async deleteProducts(
-    cronId: string,
+    jobId: string,
     store: string,
-    type: string,
+    jobType: string,
     data:
       | OnchWithCoupangProduct[]
       | CoupangPagingProduct[]
       | NaverChannelProduct[]
       | CoupangComparisonWithOnchData[],
   ): Promise<void> {
-    console.log(`${type}${cronId}: 온채널 품절상품 삭제`);
-    const contextId = `context-${store}-${cronId}`;
+    console.log(`${jobType}${jobId}: 온채널 품절상품 삭제`);
+    const contextId = `context-${store}-${jobId}`;
 
     // 상품 코드 추출
     const productCodesArray = this.deleteProductsProvider.extractProductCodes(data);
     const totalProducts = productCodesArray.length;
 
     if (totalProducts === 0) {
-      console.log(`${type}${cronId}: 삭제할 상품이 없습니다.`);
+      console.log(`${jobType}${jobId}: 삭제할 상품이 없습니다.`);
       console.log(totalProducts);
       return;
     }
 
-    console.log(`${type}${cronId}: 총 ${totalProducts}개 상품 삭제 예정`);
+    console.log(`${jobType}${jobId}: 총 ${totalProducts}개 상품 삭제 예정`);
 
     try {
       // 삭제 작업 수행
       const result = await this.deleteProductsProvider.performBatchDeletion(
         contextId,
-        cronId,
+        jobId,
         store,
-        type,
+        jobType,
         productCodesArray,
       );
 
       // 최종 결과 로깅
       console.log(
-        `${type}${cronId}: 상품 삭제 작업 완료. 성공: ${result.successCount}, 실패: ${result.failedCount}`,
+        `${jobType}${jobId}: 상품 삭제 작업 완료. 성공: ${result.successCount}, 실패: ${result.failedCount}`,
       );
     } finally {
       // 컨텍스트 리소스 해제
@@ -98,8 +98,8 @@ export class OnchCrawlerService {
    * 온채널에서 마지막 크론 작업 이후 품절된 상품들을 크롤링하는 메서드
    *
    * @param store - 크롤링 대상 스토어 이름
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<{soldoutProductCodes: string[]}>} -
    *          품절된 상품 코드 배열과 해당 상품들의 등록/수정 날짜 배열을 포함하는 Promise
@@ -119,11 +119,11 @@ export class OnchCrawlerService {
    */
   async crawlingOnchSoldoutProducts(
     store: string,
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
   ): Promise<{ soldoutProductCodes: string[] }> {
-    const pageId = `page-${store}-${cronId}`;
-    const contextId = `context-${store}-${cronId}`;
+    const pageId = `page-${store}-${jobId}`;
+    const contextId = `context-${store}-${jobId}`;
 
     try {
       // 1. 온채널 관리자 로그인 및 페이지 이동
@@ -143,13 +143,13 @@ export class OnchCrawlerService {
       const codes = await this.crawlingOnchSoldoutProductsProvider.extractSoldOutProducts(onchPage);
 
       console.log(
-        `${type}${cronId}: 온채널 품절상품 크롤링 완료. 총 ${codes.soldoutProductCodes.length}개 상품`,
+        `${jobType}${jobId}: 온채널 품절상품 크롤링 완료. 총 ${codes.soldoutProductCodes.length}개 상품`,
       );
 
       return codes;
     } catch (error: any) {
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 온채널 품절상품 크롤링 오류\n`,
+        `${JobType.ERROR}${jobType}${jobId}: 온채널 품절상품 크롤링 오류\n`,
         error.message || error,
       );
       throw error;
@@ -161,9 +161,9 @@ export class OnchCrawlerService {
   /**
    * 온채널에 등록된 모든 판매 상품을 페이지네이션하며 크롤링하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 크롤링 대상 스토어 이름
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<void>} - 크롤링 작업 완료 시 해결되는 Promise
    *
@@ -180,28 +180,28 @@ export class OnchCrawlerService {
    * 10페이지마다 진행 상황을 로깅하여 크롤링 진행 상태를 모니터링할 수 있습니다.
    * 모든 상품 ID 수집 후 Playwright 컨텍스트를 해제하여 리소스 누수를 방지합니다.
    */
-  async crawlOnchRegisteredProducts(cronId: string, store: string, type: string): Promise<void> {
-    const pageId = `page-${store}-${cronId}`;
-    const contextId = `context-${store}-${cronId}`;
+  async crawlOnchRegisteredProducts(jobId: string, store: string, jobType: string): Promise<void> {
+    const pageId = `page-${store}-${jobId}`;
+    const contextId = `context-${store}-${jobId}`;
 
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    console.log(`${type}${cronId}: 온채널 판매상품 리스트업 시작...`);
+    console.log(`${jobType}${jobId}: 온채널 판매상품 리스트업 시작...`);
     const allProductIds = await this.crawlOnchRegisteredProductsProvider.crawlProductList(
       onchPage,
-      cronId,
-      type,
+      jobId,
+      jobType,
     );
 
-    await this.crawlOnchDetailProducts(store, cronId, onchPage, contextId, allProductIds);
+    await this.crawlOnchDetailProducts(store, jobId, onchPage, contextId, allProductIds);
   }
 
   /**
    * 온채널 상품의 상세 정보 크롤링 메서드 (병렬옵션)
    *
    * @Param store - 크롤링 대상 스토어 이름
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param onchPage - 온채널 관리자 페이지 객체
    * @Param contextId - 현재 실행 중인 컨텍스트의 고유 식별자
    * @param allProductIds - 크롤링할 모든 상품 ID 배열
@@ -224,12 +224,12 @@ export class OnchCrawlerService {
    */
   async crawlOnchDetailProducts(
     store: string,
-    cronId: string,
+    jobId: string,
     onchPage: Page,
     contextId: string,
     allProductIds: string[],
   ): Promise<void> {
-    console.log(`${CronType.PRICE}${cronId}: 온채널 판매상품 상세정보 크롤링 시작...`);
+    console.log(`${JobType.PRICE}${jobId}: 온채널 판매상품 상세정보 크롤링 시작...`);
     // 병렬 처리 설정
     const CONCURRENT_PAGES = 2; // 동시에 사용할 페이지 수
     const BATCH_SIZE = 50; // 데이터베이스 저장 배치 크기
@@ -238,11 +238,11 @@ export class OnchCrawlerService {
       // 1. 병렬 처리를 위한 페이지 생성
       const pages = await this.playwrightService.createParallelPages(
         store,
-        cronId,
+        jobId,
         CONCURRENT_PAGES,
       );
 
-      console.log(`${CronType.PRICE}${cronId}: 총 ${pages.length}개 페이지로 병렬 처리 시작`);
+      console.log(`${JobType.PRICE}${jobId}: 총 ${pages.length}개 페이지로 병렬 처리 시작`);
 
       // 2. 상품 정보 병렬 추출 및 처리
       const result = await this.playwrightService.processItemsInParallel<string, OnchProduct>(
@@ -258,17 +258,17 @@ export class OnchCrawlerService {
         (completed, total) => {
           if (completed % Math.ceil(total / 10) === 0 || completed === total) {
             console.log(
-              `${CronType.PRICE}${cronId}: 진행률 ${completed}/${total} (${Math.round((completed / total) * 100)}%)`,
+              `${JobType.PRICE}${jobId}: 진행률 ${completed}/${total} (${Math.round((completed / total) * 100)}%)`,
             );
           }
         },
       );
 
       console.log(
-        `${CronType.PRICE}${cronId}: 온채널 판매상품 상세정보 크롤링 완료. 성공: ${result.successCount}, 실패: ${result.failCount}`,
+        `${JobType.PRICE}${jobId}: 온채널 판매상품 상세정보 크롤링 완료. 성공: ${result.successCount}, 실패: ${result.failCount}`,
       );
     } catch (error) {
-      console.error(`${CronType.ERROR}${cronId}: 병렬 크롤링 중 심각한 오류 발생`, error);
+      console.error(`${JobType.ERROR}${jobId}: 병렬 크롤링 중 심각한 오류 발생`, error);
       throw error;
     } finally {
       await this.playwrightService.releaseContext(contextId);
@@ -278,10 +278,10 @@ export class OnchCrawlerService {
   /**
    * 쿠팡 주문 정보를 바탕으로 온채널에서 자동 발주를 수행
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 발주를 수행할 스토어 이름
    * @param orders - 발주할 쿠팡 주문 정보 배열
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<Array>} - 각 주문 항목별 발주 결과 객체를 포함하는 배열을 반환하는 Promise
    *                            성공 시: {status: 'success', orderId, ordererName, receiverName, sellerProductName, sellerProductItemName, shippingCount}
@@ -307,13 +307,13 @@ export class OnchCrawlerService {
    * 발주 프로세스는 계속 진행됩니다. 각 주문 항목별로 성공/실패 결과를 기록하여 반환합니다.
    */
   async automaticOrdering(
-    cronId: string,
-    type: string,
+    jobId: string,
+    jobType: string,
     store: string,
     orders: CoupangOrder[],
   ): Promise<Array<any>> {
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
     const results = []; // 발주 결과 저장 배열
 
@@ -329,18 +329,18 @@ export class OnchCrawlerService {
 
         try {
           // 상품검색
-          await this.automaticOrderingProvider.searchProduct(onchPage, productCode, cronId, type);
+          await this.automaticOrderingProvider.searchProduct(onchPage, productCode, jobId, jobType);
 
           // 옵션설정
           await this.automaticOrderingProvider.selectProductOption(
             onchPage,
             order.items,
-            cronId,
-            type,
+            jobId,
+            jobType,
           );
 
           // 주문 정보 입력
-          await this.automaticOrderingProvider.fillOrderDetails(onchPage, order, cronId, type);
+          await this.automaticOrderingProvider.fillOrderDetails(onchPage, order, jobId, jobType);
 
           // 주문 처리
           const completeButtonSelector = '.btnOrderComplete';
@@ -385,7 +385,7 @@ export class OnchCrawlerService {
 
       return results;
     } catch (error: any) {
-      console.error(`${CronType.ERROR}${type}${cronId}: 발주 중 오류 발생`, error);
+      console.error(`${JobType.ERROR}${jobType}${jobId}: 발주 중 오류 발생`, error);
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }
@@ -394,9 +394,9 @@ export class OnchCrawlerService {
   /**
    * 온채널에서 운송장 정보를 추출하는 메서드
    *
-   * @param cronId - 현재 실행 중인 크론 작업의 고유 식별자
+   * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param store - 스토어 식별자 (온채널 계정 구분용)
-   * @param type - 로그 메시지에 포함될 작업 유형 식별자
+   * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
    * @returns {Promise<OnchSoldout[]>} - 추출된 운송장 정보 배열을 반환하는 Promise
    *
@@ -408,10 +408,10 @@ export class OnchCrawlerService {
    * 4. 페이지네이션을 통해 모든 페이지의 데이터를 스크래핑
    * 5. 작업 완료 후 Playwright 컨텍스트 해제
    */
-  async deliveryExtraction(cronId: string, store: string, type: string): Promise<DeliveryData[]> {
+  async deliveryExtraction(jobId: string, store: string, jobType: string): Promise<DeliveryData[]> {
     // 브라우저 컨텍스트와 페이지를 구분하기 위한 고유 ID 생성
-    const contextId = `context-${store}-${cronId}`;
-    const pageId = `page-${store}-${cronId}`;
+    const contextId = `context-${store}-${jobId}`;
+    const pageId = `page-${store}-${jobId}`;
 
     try {
       // 온채널 사이트에 로그인하고 페이지 객체 획득
@@ -427,16 +427,27 @@ export class OnchCrawlerService {
       await onchPage.waitForLoadState('networkidle');
 
       // 운송 데이터 추출
-      return await this.deliveryExtractionProvider.extractDeliveryData(onchPage, type, cronId);
+      return await this.deliveryExtractionProvider.extractDeliveryData(onchPage, jobType, jobId);
     } catch (error: any) {
       // 전체 프로세스 오류 처리
       console.error(
-        `${CronType.ERROR}${type}${cronId}: 운송장 추출 중 오류 발생: ${error.message}`,
+        `${JobType.ERROR}${jobType}${jobId}: 운송장 추출 중 오류 발생: ${error.message}`,
       );
       return [];
     } finally {
       // 작업 완료 후 브라우저 컨텍스트 해제 (리소스 정리)
       await this.playwrightService.releaseContext(contextId);
     }
+  }
+
+  async productRegistration(jobId: string, jobType: string, store: string, data: any) {
+    console.log(`${jobType}${jobId}: 상품 등록 시작`);
+    const contextId = `context-${jobType}-${jobId}`;
+    const pageId = `page-${jobType}-${jobId}`;
+
+    const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const url = ``;
   }
 }

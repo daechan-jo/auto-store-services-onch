@@ -1,4 +1,4 @@
-import { CronType, RabbitmqMessage } from '@daechanjo/models';
+import { JobType, RabbitmqMessage } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
@@ -51,7 +51,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
   @MessagePattern('onch-queue')
   async processMessage(data: RabbitmqMessage) {
     const { pattern, payload } = data;
-    console.log(`${payload.type}${payload.cronId}: 📬${pattern}`);
+    console.log(`${payload.jobType}${payload.jobId}: 📬${pattern}`);
 
     switch (pattern) {
       case 'clearOnchProducts':
@@ -60,9 +60,9 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
 
       case 'deleteProducts':
         await this.onchCrawlerService.deleteProducts(
-          payload.cronId,
+          payload.jobId,
           payload.store,
-          payload.type,
+          payload.jobType,
           payload.data,
         );
         break;
@@ -70,43 +70,52 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
       case 'crawlingOnchSoldoutProducts':
         const { soldoutProductCodes } = await this.onchCrawlerService.crawlingOnchSoldoutProducts(
           payload.store,
-          payload.cronId,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
         );
         return { status: 'success', data: { soldoutProductCodes } };
 
       case 'crawlOnchRegisteredProducts':
         await this.onchCrawlerService.crawlOnchRegisteredProducts(
-          payload.cronId,
+          payload.jobId,
           payload.store,
-          payload.type,
+          payload.jobType,
         );
         return { status: 'success' };
 
       case 'automaticOrdering':
         const automaticOrderingResult = await this.onchCrawlerService.automaticOrdering(
-          payload.cronId,
-          payload.type,
+          payload.jobId,
+          payload.jobType,
           payload.store,
-          payload.orders,
+          payload.data,
         );
         return { status: 'success', data: automaticOrderingResult };
 
       case 'deliveryExtraction':
         const waybillExtractionResult = await this.onchCrawlerService.deliveryExtraction(
-          payload.cronId,
+          payload.jobId,
           payload.store,
-          payload.type,
+          payload.jobType,
         );
         return { status: 'success', data: waybillExtractionResult };
 
       case 'getProductByCode':
-        const product = await this.onchService.getProductByCode(payload.externalVendorSkuCode);
+        const product = await this.onchService.getProductByCode(payload.data);
         return { status: 'success', data: product };
+
+      case 'productRegistration':
+        await this.onchCrawlerService.productRegistration(
+          payload.jobId,
+          payload.jobType,
+          payload.store,
+          payload.data,
+        );
+        return { status: 'success' };
 
       default:
         console.error(
-          `${CronType.ERROR}${payload.type}${payload.cronId}: 📬알 수 없는 패턴 유형 ${pattern}`,
+          `${JobType.ERROR}${payload.jobType}${payload.jobId}: 📬알 수 없는 패턴 유형 ${pattern}`,
         );
         return { status: 'error', message: `알 수 없는 패턴 유형: ${pattern}` };
     }
