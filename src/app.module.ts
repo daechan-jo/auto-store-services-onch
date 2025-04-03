@@ -1,4 +1,4 @@
-import { JobType } from '@daechanjo/models';
+import { AdulType, CategoryType, ChannelType, JobType, TaxType } from '@daechanjo/models';
 import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
 import { UtilModule } from '@daechanjo/util';
@@ -87,9 +87,20 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(true, 'chromium');
+      this.playwrightService.setConfig(false, 'chromium');
       await this.playwrightService.initializeBrowser();
-      // await this.onchCrawlerService.waybillExtraction('test', 'linkedout', CronType.SOLDOUT);
+
+      await this.onchCrawlerService.productRegistration('test', JobType.REGISTER, 'linkedout', {
+        keyword: '화분',
+        category: CategoryType.CLOTHES,
+        minPrice: '2000',
+        maxPrice: '200000',
+        tax: TaxType.ALL,
+        adult: AdulType.NO,
+        channel: ChannelType.FREE,
+        limit: '100',
+        repeat: '2',
+      });
     });
   }
 }

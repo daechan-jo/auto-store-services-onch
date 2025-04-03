@@ -61,25 +61,25 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
       case 'deleteProducts':
         await this.onchCrawlerService.deleteProducts(
           payload.jobId,
-          payload.store,
           payload.jobType,
+          payload.store,
           payload.data,
         );
         break;
 
       case 'crawlingOnchSoldoutProducts':
         const { soldoutProductCodes } = await this.onchCrawlerService.crawlingOnchSoldoutProducts(
-          payload.store,
           payload.jobId,
           payload.jobType,
+          payload.store,
         );
         return { status: 'success', data: { soldoutProductCodes } };
 
       case 'crawlOnchRegisteredProducts':
         await this.onchCrawlerService.crawlOnchRegisteredProducts(
           payload.jobId,
-          payload.store,
           payload.jobType,
+          payload.store,
         );
         return { status: 'success' };
 
@@ -95,8 +95,8 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
       case 'deliveryExtraction':
         const waybillExtractionResult = await this.onchCrawlerService.deliveryExtraction(
           payload.jobId,
-          payload.store,
           payload.jobType,
+          payload.store,
         );
         return { status: 'success', data: waybillExtractionResult };
 
