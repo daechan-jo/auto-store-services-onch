@@ -1,74 +1,34 @@
-import { Processor, Process } from '@nestjs/bull';
+import { Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 
 import { OnchCrawlerService } from './crawler/onch.crawler.service';
+import { Job } from 'bull';
+import { ConfigService } from '@nestjs/config';
 
 @Processor('onch-message-queue')
 @Injectable()
 export class MessageQueueProcessor {
-  constructor(private readonly onchService: OnchCrawlerService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly onchCrawlerService: OnchCrawlerService,
+  ) {}
 
-  // @Process({ name: 'process-message', concurrency: 1 })
-  // async processMessage(job: Job) {
-  //   const { pattern, payload } = job.data;
-  //
-  //   console.log(`${payload.type}${payload.cronId}: 🔥${pattern}`);
-  //
-  //   try {
-  //     switch (pattern) {
-  //       case 'deleteProducts':
-  //         await this.onchService.deleteProducts(
-  //           payload.cronId,
-  //           payload.store,
-  //           payload.type,
-  //           payload.matchedCoupangProducts,
-  //           payload.matchedNaverProducts,
-  //         );
-  //         break;
-  //
-  //       case 'crawlingOnchSoldoutProducts':
-  //         const { stockProductCodes, productDates } =
-  //           await this.onchService.crawlingOnchSoldoutProducts(
-  //             payload.lastCronTime,
-  //             payload.store,
-  //             payload.cronId,
-  //             payload.type,
-  //           );
-  //         return { status: 'success', data: { stockProductCodes, productDates } };
-  //
-  //       case 'crawlOnchRegisteredProducts':
-  //         await this.onchService.crawlOnchRegisteredProducts(
-  //           payload.cronId,
-  //           payload.store,
-  //           payload.type,
-  //         );
-  //         return { status: 'success' };
-  //
-  //       case 'automaticOrdering':
-  //         const automaticOrderingResult = await this.onchService.automaticOrdering(
-  //           payload.cronId,
-  //           payload.store,
-  //           payload.newOrderProducts,
-  //           payload.type,
-  //         );
-  //         return { status: 'success', data: automaticOrderingResult };
-  //
-  //       case 'waybillExtraction':
-  //         const waybillExtractionResult = await this.onchService.waybillExtraction(
-  //           payload.cronId,
-  //           payload.store,
-  //           payload.lastCronTime,
-  //           payload.type,
-  //         );
-  //         return { status: 'success', data: waybillExtractionResult };
-  //
-  //       default:
-  //         console.warn(
-  //           `${CronType.ERROR}${payload.type}${payload.cronId}: 🔥알 수 없는 패턴 ${pattern}`,
-  //         );
-  //     }
-  //   } catch (error: any) {
-  //     console.error(`${CronType.ERROR}${payload.type}${payload.cronId}: 🔥${pattern}\n`, error);
-  //   }
-  // }
+  @Process({ name: 'product-registration', concurrency: 1 }) // 작업 이름
+  async productRegistration(job: Job) {
+    const { pattern, payload } = job.data;
+    try {
+      console.log(`${payload.jobType}${payload.jobId}: 🔥${pattern} - 작업 시작`);
+
+      return await this.onchCrawlerService.productRegistration(
+        payload.jobId,
+        payload.jobType,
+        payload.store,
+        payload.data,
+      );
+    } catch (error: any) {
+      console.error(`${payload.jobType}${payload.jobId}: 작업 처리 중 오류 발생`, error);
+      throw error;
+    } finally {
+    }
+  }
 }

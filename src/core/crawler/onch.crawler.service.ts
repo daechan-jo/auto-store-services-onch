@@ -7,6 +7,10 @@ import {
   CoupangComparisonWithOnchData,
   CoupangOrder,
   ProductRegistrationReqDto,
+  AdulTypeEncoding,
+  ChannelTypeEncoding,
+  TaxTypeEncoding,
+  ProductRegistrationResult,
 } from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
 import { PlaywrightService } from '@daechanjo/playwright';
@@ -440,14 +444,13 @@ export class OnchCrawlerService {
       await this.playwrightService.releaseContext(contextId);
     }
   }
-  // const url = `https://www.onch3.co.kr/dbcenter_renewal/index.php?keyword=${encodedKeyword}&cate_f=${encodedCategory}&cate_s=&cate_t=&cate_fr=&sprice=${data.minPrice}&eprice=${data.maxPrice}&tax_type=${encodedTax}&is_adult=${encodedAdult}&search_channel=${encodedChannel}&provider_grade_cls=&provider_sgrade=&agree_sdt=&agree_edt=&send_sprice=&send_eprice=&detail_keyword=$pgn${data.limit}`;
 
   async productRegistration(
     jobId: string,
     jobType: string,
     store: string,
     data: ProductRegistrationReqDto,
-  ) {
+  ): Promise<ProductRegistrationResult[]> {
     console.log(`${jobType}${jobId}: 상품 등록 시작`);
     const contextId = `context-${jobType}-${jobId}`;
     const pageId = `page-${jobType}-${jobId}`;
@@ -458,18 +461,21 @@ export class OnchCrawlerService {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     try {
+      const tax = TaxTypeEncoding[data.tax];
+      const adult = AdulTypeEncoding[data.adult];
+      const channel = ChannelTypeEncoding[data.channel];
       const encodedKeyword = encodeURIComponent(data.keyword);
       const encodedCategory = encodeURIComponent(data.category || '');
-      const encodedTax = encodeURIComponent(data.tax || '');
-      const encodedAdult = encodeURIComponent(data.adult || '');
-      const encodedChannel = encodeURIComponent(data.channel || '');
+      const encodedTax = encodeURIComponent(tax || '');
+      const encodedAdult = encodeURIComponent(adult || '');
+      const encodedChannel = encodeURIComponent(channel || '');
       const encodedLimit = encodeURIComponent(data.limit || '');
 
       // 초기 URL에 limit 추가
       const baseUrl = `https://www.onch3.co.kr/dbcenter_renewal/index.php?keyword=${encodedKeyword}&cate_f=${encodedCategory}&cate_s=&cate_t=&cate_fr=&sprice=${data.minPrice || ''}&eprice=${data.maxPrice || ''}&tax_type=${encodedTax}&is_adult=${encodedAdult}&search_channel=${encodedChannel}&provider_grade_cls=&provider_sgrade=&agree_sdt=&agree_edt=&send_sprice=&send_eprice=&detail_keyword=&pgn=${encodedLimit}`;
 
       // 작업 결과 저장
-      const results = [];
+      const results: ProductRegistrationResult[] = [];
 
       // repeat 횟수만큼 페이지 이동하며 처리
       for (let currentPage = 1; currentPage <= repeatCount; currentPage++) {
@@ -488,7 +494,7 @@ export class OnchCrawlerService {
             // 페이지가 올바르게 로드되었는지 확인 (pagination 요소 확인)
             const paginationSelector = 'ul.pagination';
             await onchPage
-              .waitForSelector(paginationSelector, { timeout: 10000 })
+              .waitForSelector(paginationSelector, { timeout: 3000 })
               .catch(() =>
                 console.log(`${jobType}${jobId}: 페이지네이션 요소를 찾을 수 없음, 계속 진행`),
               );
@@ -496,11 +502,8 @@ export class OnchCrawlerService {
             // 전체선택 체크박스 클릭
             const checkAllSelector =
               'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div.btn_chk_all > label';
-            await onchPage.waitForSelector(checkAllSelector, { timeout: 10000 });
+            await onchPage.waitForSelector(checkAllSelector, { timeout: 3000 });
             await onchPage.click(checkAllSelector);
-            console.log(
-              `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 전체선택 체크박스 클릭 완료`,
-            );
 
             // 클릭 후 잠시 대기
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -508,22 +511,16 @@ export class OnchCrawlerService {
             // 쿠팡 보내기 버튼 클릭
             const coupangButtonSelector =
               'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div:nth-child(4)';
-            await onchPage.waitForSelector(coupangButtonSelector, { timeout: 10000 });
+            await onchPage.waitForSelector(coupangButtonSelector, { timeout: 1000 });
             await onchPage.click(coupangButtonSelector);
-            console.log(
-              `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 쿠팡 보내기 버튼 클릭 완료`,
-            );
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
             // 전송하기 버튼 클릭
             const submitButtonSelector =
               'body > div.content_wrap > section > div > div.coupang_modi_layer > div.smart_title > div.api_order_wrap > div > button.coupang_modi_btn';
-            await onchPage.waitForSelector(submitButtonSelector, { timeout: 10000 });
+            await onchPage.waitForSelector(submitButtonSelector, { timeout: 1000 });
             await onchPage.click(submitButtonSelector);
-            console.log(
-              `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 전송하기 버튼 클릭 완료`,
-            );
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -532,17 +529,14 @@ export class OnchCrawlerService {
             const dialogPromise = new Promise<string>((resolve) => {
               onchPage.once('dialog', async (dialog) => {
                 alertMessage = dialog.message();
-                console.log(
-                  `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 알럿 메시지: ${alertMessage}`,
-                );
                 await dialog.accept();
                 resolve(alertMessage);
               });
             });
 
-            // 타임아웃 설정 (10분 = 600000ms)
+            // 타임아웃 설정
             const timeoutPromise = new Promise<string>((_, reject) => {
-              setTimeout(() => reject(new Error('알럿 대화상자 타임아웃')), 600000);
+              setTimeout(() => reject(new Error('알럿 대화상자 타임아웃')), 300000);
             });
 
             await Promise.race([dialogPromise, timeoutPromise]);
@@ -551,7 +545,8 @@ export class OnchCrawlerService {
             results.push({
               page: currentPage,
               success: true,
-              alertMessage,
+              alertMessage: alertMessage,
+              errorMessage: '',
             });
 
             success = true;
@@ -565,7 +560,8 @@ export class OnchCrawlerService {
               results.push({
                 page: currentPage,
                 success: false,
-                error: error.message,
+                alertMessage: '',
+                errorMessage: error.message,
               });
             }
 
@@ -576,17 +572,10 @@ export class OnchCrawlerService {
 
       console.log(`${jobType}${jobId}: 모든 페이지 처리 완료. 결과:`, results);
 
-      return {
-        success: results.every((r) => r.success),
-        message: '상품 등록 및 쿠팡 전송 작업 완료',
-        results,
-      };
+      return results;
     } catch (error: any) {
       console.error(`${JobType.ERROR}${jobType}${jobId}: 전체 작업 중 치명적 오류 발생`, error);
-      return {
-        success: false,
-        message: `상품 등록 중 오류: ${error.message}`,
-      };
+      throw error;
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }

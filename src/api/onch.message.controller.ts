@@ -1,4 +1,4 @@
-import { JobType, RabbitmqMessage } from '@daechanjo/models';
+import { JobType, ProductRegistrationResult, RabbitmqMessage } from '@daechanjo/models';
 import { InjectQueue } from '@nestjs/bull';
 import { Controller, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
@@ -14,7 +14,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly onchService: OnchService,
     private readonly onchCrawlerService: OnchCrawlerService,
-    @InjectQueue('onch-message-queue') private readonly messageQueue: Queue,
+    @InjectQueue('onch-bull-queue') private readonly onchBullQueue: Queue,
   ) {}
 
   onModuleInit() {
@@ -22,15 +22,15 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    this.messageQueue.off('global:completed', this.onJobCompleted);
-    this.messageQueue.off('global:failed', this.onJobFailed);
+    this.onchBullQueue.off('global:completed', this.onJobCompleted);
+    this.onchBullQueue.off('global:failed', this.onJobFailed);
   }
 
   private registerGlobalEvents() {
     if (this.isEventListenersRegistered) return;
 
-    this.messageQueue.on('global:completed', this.onJobCompleted);
-    this.messageQueue.on('global:failed', this.onJobFailed);
+    this.onchBullQueue.on('global:completed', this.onJobCompleted);
+    this.onchBullQueue.on('global:failed', this.onJobFailed);
 
     this.isEventListenersRegistered = true;
   }
@@ -49,8 +49,8 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
   };
 
   @MessagePattern('onch-queue')
-  async processMessage(data: RabbitmqMessage) {
-    const { pattern, payload } = data;
+  async processMessage(message: RabbitmqMessage) {
+    const { pattern, payload } = message;
     console.log(`${payload.jobType}${payload.jobId}: 📬${pattern}`);
 
     switch (pattern) {
@@ -105,13 +105,9 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
         return { status: 'success', data: product };
 
       case 'productRegistration':
-        await this.onchCrawlerService.productRegistration(
-          payload.jobId,
-          payload.jobType,
-          payload.store,
-          payload.data,
-        );
-        return { status: 'success' };
+        const job = await this.onchBullQueue.add('product-registration', message);
+        const result: ProductRegistrationResult[] = await job.finished();
+        return { status: 'success', data: result };
 
       default:
         console.error(

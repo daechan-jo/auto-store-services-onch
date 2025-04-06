@@ -32,7 +32,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     TypeOrmModule.forRootAsync(TypeormConfig),
     TypeOrmModule.forFeature([OnchProductEntity, OnchItemEntity]),
     BullModule.registerQueueAsync({
-      name: 'onch-message-queue',
+      name: 'onch-bull-queue',
       useFactory: async (configService: ConfigService) => ({
         redis: {
           host: configService.get<string>('REDIS_HOST'),
@@ -40,10 +40,21 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
         },
         prefix: '{bull}',
         defaultJobOptions: {
-          removeOnComplete: true,
-          removeOnFail: true,
-          attempts: 3,
-          backoff: 30000,
+          removeOnComplete: {
+            // 완료된 작업은 하루 후 삭제
+            // age: 24 * 60 * 60 * 1000,
+            age: 7 * 24 * 60 * 60 * 1000,
+            count: 1000,
+          },
+          removeOnFail: {
+            age: 7 * 24 * 60 * 60 * 1000, // 실패한 작업은 일주일 후 삭제
+            count: 1000,
+          },
+          attempts: 100,
+          backoff: {
+            type: 'fixed',
+            delay: 5000,
+          },
         },
         limiter: {
           max: 1,
@@ -72,7 +83,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
   constructor(
-    @InjectQueue('onch-message-queue') private readonly queue: Queue,
+    @InjectQueue('onch-bull-queue') private readonly queue: Queue,
     private readonly playwrightService: PlaywrightService,
     private readonly onchCrawlerService: OnchCrawlerService,
   ) {}
@@ -87,20 +98,20 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
 
   async onApplicationBootstrap() {
     setTimeout(async () => {
-      this.playwrightService.setConfig(false, 'chromium');
+      this.playwrightService.setConfig(true, 'chromium');
       await this.playwrightService.initializeBrowser();
 
-      await this.onchCrawlerService.productRegistration('test', JobType.REGISTER, 'linkedout', {
-        keyword: '화분',
-        category: CategoryType.CLOTHES,
-        minPrice: '2000',
-        maxPrice: '200000',
-        tax: TaxType.ALL,
-        adult: AdulType.NO,
-        channel: ChannelType.FREE,
-        limit: '100',
-        repeat: '2',
-      });
+      //   await this.onchCrawlerService.productRegistration('test', JobType.REGISTER, 'linkedout', {
+      //     keyword: '화분',
+      //     category: CategoryType.CLOTHES,
+      //     minPrice: '2000',
+      //     maxPrice: '200000',
+      //     tax: TaxType.ALL,
+      //     adult: AdulType.NO,
+      //     channel: ChannelType.FREE,
+      //     limit: '100',
+      //     repeat: '2',
+      //   });
     });
   }
 }
