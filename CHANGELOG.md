@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.0.3...v1.1.0) (2025-04-03)
+
+
+### Features
+
+* 제품 자동 등록 크롤링 기능 추가 ([68456a2](https://github.com/daechan-jo/auto-store-services-onch/commit/68456a2baa62ffd0d226a104898877471cb225f6))
+
 ## [1.0.3](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.0.2...v1.0.3) (2025-04-01)
 
 ## [1.0.2](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.0.1...v1.0.2) (2025-04-01)
