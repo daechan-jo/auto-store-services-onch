@@ -1,3 +1,11 @@
+# [1.2.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.1.0...v1.2.0) (2025-04-06)
+
+
+### Features
+
+* 대기열 관리 로직 추가 ([2071658](https://github.com/daechan-jo/auto-store-services-onch/commit/20716589c12da595fa8634db238730f5429fd8a2))
+* 상품등록 큐 이전 ([3a6ebd5](https://github.com/daechan-jo/auto-store-services-onch/commit/3a6ebd5f3f9a1463dca6d4362e037da0d0f2f06c))
+
 # [1.1.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.0.3...v1.1.0) (2025-04-03)
 
 
