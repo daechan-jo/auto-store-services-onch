@@ -106,8 +106,41 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
 
       case 'productRegistration':
         const job = await this.onchBullQueue.add('product-registration', message);
-        const result: ProductRegistrationResult[] = await job.finished();
-        return { status: 'success', data: result };
+        const results: ProductRegistrationResult[] = await job.finished();
+        return { status: 'success', data: results };
+
+      // queue 관련
+      case 'getStatus':
+        const status = await this.onchService.getJobStatusCount();
+        return { status: 'success', data: status };
+
+      case 'getWaitingJobs':
+        const waitingJobs = await this.onchService.getWaitingJobs();
+        return { status: 'success', data: waitingJobs };
+
+      case 'getActiveJobs':
+        const activeJobs = await this.onchService.getActiveJobs();
+        return { status: 'success', data: activeJobs };
+
+      case 'getCompletedJobs':
+        const completedJobs = await this.onchService.getCompletedJobs();
+        return { status: 'success', data: completedJobs };
+
+      case 'getFailedJobs':
+        const failedJobs = await this.onchService.getFailedJobs();
+        return { status: 'success', data: failedJobs };
+
+      case 'getDelayedJobs':
+        const delayedJobs = await this.onchService.getDelayedJobs();
+        return { status: 'success', data: delayedJobs };
+
+      case 'getAllJobs':
+        const allJobs = await this.onchService.getAllJobStatus();
+        return { status: 'success', data: allJobs };
+
+      case 'deleteJob':
+        await this.onchService.removeJob(payload.data);
+        return { status: 'success' };
 
       default:
         console.error(

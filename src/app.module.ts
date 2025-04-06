@@ -100,18 +100,6 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     setTimeout(async () => {
       this.playwrightService.setConfig(true, 'chromium');
       await this.playwrightService.initializeBrowser();
-
-      //   await this.onchCrawlerService.productRegistration('test', JobType.REGISTER, 'linkedout', {
-      //     keyword: '화분',
-      //     category: CategoryType.CLOTHES,
-      //     minPrice: '2000',
-      //     maxPrice: '200000',
-      //     tax: TaxType.ALL,
-      //     adult: AdulType.NO,
-      //     channel: ChannelType.FREE,
-      //     limit: '100',
-      //     repeat: '2',
-      //   });
     });
   }
 }

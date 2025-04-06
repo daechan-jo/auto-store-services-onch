@@ -5,7 +5,7 @@ import { OnchCrawlerService } from './crawler/onch.crawler.service';
 import { Job } from 'bull';
 import { ConfigService } from '@nestjs/config';
 
-@Processor('onch-message-queue')
+@Processor('onch-bull-queue')
 @Injectable()
 export class MessageQueueProcessor {
   constructor(
