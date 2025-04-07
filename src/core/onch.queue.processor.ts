@@ -3,7 +3,11 @@ import { Injectable } from '@nestjs/common';
 
 import { OnchCrawlerService } from './crawler/onch.crawler.service';
 import { Job, Queue } from 'bull';
-import { ProductRegistrationReqResDto, ProductRegistrationResult } from '@daechanjo/models';
+import {
+  OnchProductRegistrationCount,
+  ProductRegistrationReqResDto,
+  ProductRegistrationResult,
+} from '@daechanjo/models';
 
 @Processor('onch-bull-queue')
 @Injectable()
@@ -27,7 +31,7 @@ export class MessageQueueProcessor {
           payload.data,
         );
 
-      const summary: ProductRegistrationReqResDto = {
+      const summary: OnchProductRegistrationCount = {
         successCount: 0,
         failCount: 0,
         alreadyRegisteredCount: 0,
