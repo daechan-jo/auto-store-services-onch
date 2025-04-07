@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.2.0...v1.3.0) (2025-04-07)
+
+
+### Features
+
+* (스케줄링) 요청 알림 기능 추가 ([66f90f9](https://github.com/daechan-jo/auto-store-services-onch/commit/66f90f9c3f1260ddf6c1c9b2b83d5ba9eab8df5b))
+
 # [1.2.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.1.0...v1.2.0) (2025-04-06)
 
 
