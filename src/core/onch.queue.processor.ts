@@ -1,25 +1,22 @@
-import { InjectQueue, Process, Processor } from '@nestjs/bull';
+import { Process, Processor } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 
 import { OnchCrawlerService } from './crawler/onch.crawler.service';
-import { Job, Queue } from 'bull';
-import {
-  OnchProductRegistrationCount,
-  ProductRegistrationReqResDto,
-  ProductRegistrationResult,
-} from '@daechanjo/models';
+import { Job } from 'bull';
+import { ProductRegistrationResult, ProductRegistrationSummary } from '@daechanjo/models';
+import { RabbitMQService } from '@daechanjo/rabbitmq';
 
 @Processor('onch-bull-queue')
 @Injectable()
 export class MessageQueueProcessor {
   constructor(
     private readonly onchCrawlerService: OnchCrawlerService,
-    @InjectQueue('onch-bull-queue') private readonly onchBullQueue: Queue,
+    private readonly rabbitmqService: RabbitMQService,
   ) {}
 
   @Process({ name: 'product-registration', concurrency: 1 }) // 작업 이름
   async productRegistration(job: Job) {
-    const { id, pattern, payload } = job.data;
+    const { id, name, pattern, payload } = job.data;
     try {
       console.log(`${payload.jobType}${payload.jobId}: 🔥${pattern} - 작업 시작`);
 
@@ -31,7 +28,7 @@ export class MessageQueueProcessor {
           payload.data,
         );
 
-      const summary: OnchProductRegistrationCount = {
+      const summary: ProductRegistrationSummary = {
         successCount: 0,
         failCount: 0,
         alreadyRegisteredCount: 0,
@@ -41,7 +38,7 @@ export class MessageQueueProcessor {
 
       results.forEach((result) => {
         if (result.success && result.alertMessage) {
-          const counts: ProductRegistrationReqResDto = this.extractRegistrationCounts(
+          const counts: ProductRegistrationSummary = this.extractRegistrationCounts(
             result.alertMessage,
           );
 
@@ -53,13 +50,13 @@ export class MessageQueueProcessor {
         }
       });
 
-      const job: Job = await this.onchBullQueue.getJob(id);
-      if (job) {
-        await job.update({
-          ...job.data,
-          summary,
-        });
-      }
+      await this.rabbitmqService.send('mail-queue', 'sendProductRegistrationSummary', {
+        jobId: payload.jobId,
+        jobType: payload.jobType,
+        jobQueueId: id,
+        jobName: name,
+        summary: summary,
+      });
     } catch (error: any) {
       console.error(`${payload.jobType}${payload.jobId}: 작업 처리 중 오류 발생`, error);
       throw error;

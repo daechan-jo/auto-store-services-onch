@@ -25,11 +25,13 @@ import { DeleteProductsProvider } from './provider/deleteProducts.provider';
 import { DeliveryExtractionProvider } from './provider/deliveryExtraction.provider';
 import { OnchRepository } from '../../infrastructure/repository/onch.repository';
 import { RequestNotificationProvider } from './provider/requestNotification.provider';
+import { RabbitMQService } from '@daechanjo/rabbitmq';
 
 @Injectable()
 export class OnchCrawlerService {
   constructor(
     private readonly onchRepository: OnchRepository,
+    private readonly rabbitmqService: RabbitMQService,
     private readonly playwrightService: PlaywrightService,
     private readonly deleteProductsProvider: DeleteProductsProvider,
     private readonly crawlingOnchSoldoutProductsProvider: CrawlingOnchSoldoutProductsProvider,
@@ -583,12 +585,10 @@ export class OnchCrawlerService {
               alertMessage.includes('초과하였습니다')
             ) {
               // 일일 요청 제한에 걸린 경우
-              console.log(`${jobType}${jobId}: 알럿 메시지에서 일일 요청 제한 확인됨.`);
-              results.push({
-                page: currentPage,
-                success: false,
-                alertMessage: alertMessage,
-                errorMessage: '일일요청제한',
+              console.log(`${jobType}${jobId}: 일일 요청 제한`);
+              await this.rabbitmqService.emit('mail-queue', 'sendDailyLimitReached', {
+                jobId,
+                jobType,
               });
 
               // 전체 반복문 종료 플래그 설정
