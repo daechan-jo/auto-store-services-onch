@@ -24,6 +24,7 @@ import { CrawlOnchRegisteredProductsProvider } from './provider/crawlOnchRegiste
 import { DeleteProductsProvider } from './provider/deleteProducts.provider';
 import { DeliveryExtractionProvider } from './provider/deliveryExtraction.provider';
 import { OnchRepository } from '../../infrastructure/repository/onch.repository';
+import { RequestNotificationProvider } from './provider/requestNotification.provider';
 
 @Injectable()
 export class OnchCrawlerService {
@@ -36,6 +37,7 @@ export class OnchCrawlerService {
     private readonly crawlOnchDetailProductsProvider: CrawlOnchDetailProductsProvider,
     private readonly automaticOrderingProvider: AutomaticOrderingProvider,
     private readonly deliveryExtractionProvider: DeliveryExtractionProvider,
+    private readonly requestNotificationProvider: RequestNotificationProvider,
   ) {}
 
   /**
@@ -579,5 +581,25 @@ export class OnchCrawlerService {
     } finally {
       await this.playwrightService.releaseContext(contextId);
     }
+  }
+
+  async requestNotification(jobId: string, store: string): Promise<boolean> {
+    const pageId = `page-${store}-${jobId}`;
+    const contextId = `context-${store}-${jobId}`;
+
+    const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+    await onchPage.waitForLoadState('networkidle', { timeout: 10000 });
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    await onchPage.goto('https://www.onch3.co.kr/onch_memo_list.php', {
+      timeout: 60000,
+      waitUntil: 'networkidle',
+    });
+
+    await onchPage.waitForLoadState('networkidle');
+
+    // 운송 데이터 추출
+    return await this.requestNotificationProvider.requestNotification(onchPage);
   }
 }

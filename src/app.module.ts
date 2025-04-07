@@ -7,6 +7,7 @@ import { Module, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Queue } from 'bull';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { OnchMessageController } from './api/onch.message.controller';
 import { TypeormConfig } from './config/typeorm.config';
@@ -22,6 +23,7 @@ import { OnchService } from './core/onch.service';
 import { OnchItemEntity } from './infrastructure/entities/onchItem.entity';
 import { OnchProductEntity } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';
+import { RequestNotificationProvider } from './core/crawler/provider/requestNotification.provider';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
     TypeOrmModule.forFeature([OnchProductEntity, OnchItemEntity]),
+
     BullModule.registerQueueAsync({
       name: 'onch-bull-queue',
       useFactory: async (configService: ConfigService) => ({
@@ -63,6 +66,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
       }),
       inject: [ConfigService],
     }),
+    ScheduleModule.forRoot(),
     PlaywrightModule,
     RabbitMQModule,
     UtilModule,
@@ -79,6 +83,7 @@ import { OnchRepository } from './infrastructure/repository/onch.repository';
     CrawlOnchDetailProductsProvider,
     AutomaticOrderingProvider,
     DeliveryExtractionProvider,
+    RequestNotificationProvider,
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {

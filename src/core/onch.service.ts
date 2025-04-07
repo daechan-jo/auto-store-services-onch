@@ -1,22 +1,31 @@
 import { Injectable } from '@nestjs/common';
 
 import { OnchRepository } from '../infrastructure/repository/onch.repository';
-import Bull, { JobCounts, JobStatus, Queue } from 'bull';
+import Bull, { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
 import {
+  JobType,
   OnchActiveJob,
   OnchCompletedJob,
   OnchDelayedJob,
   OnchFailedJob,
   OnchJobStatus,
-  OnchJobStatusCount,
   OnchWaitingJob,
 } from '@daechanjo/models';
+import { Cron } from '@nestjs/schedule';
+import { UtilService } from '@daechanjo/util';
+import { OnchCrawlerService } from './crawler/onch.crawler.service';
+import { ConfigService } from '@nestjs/config';
+import { RabbitMQService } from '@daechanjo/rabbitmq';
 
 @Injectable()
 export class OnchService {
   constructor(
     private readonly onchRepository: OnchRepository,
+    private readonly utilService: UtilService,
+    private readonly configService: ConfigService,
+    private readonly rabbitmqService: RabbitMQService,
+    private readonly onchCrawlerService: OnchCrawlerService,
     @InjectQueue('onch-bull-queue') private readonly onchBullQueue: Queue,
   ) {}
 
@@ -151,6 +160,23 @@ export class OnchService {
     const job = await this.onchBullQueue.getJob(jobId);
     if (job) {
       await job.retry();
+    }
+  }
+
+  @Cron('0 */10 * * * *')
+  async requestNotification() {
+    const jobId = this.utilService.generateCronId();
+    const jobType = JobType.NOTI;
+    const store = this.configService.get<string>('STORE');
+
+    try {
+      const isNoti = await this.onchCrawlerService.requestNotification(jobId, store);
+
+      if (isNoti) {
+        await this.rabbitmqService.emit('mail-queue', 'sendNewNotification', { jobId, jobType });
+      }
+    } catch (error: any) {
+      console.error(`${JobType.ERROR}${jobType}${jobId}: 알림 추출중 에러 발생\n`, error);
     }
   }
 }
