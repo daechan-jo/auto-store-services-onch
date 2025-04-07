@@ -1,3 +1,12 @@
+# [1.4.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.3.0...v1.4.0) (2025-04-07)
+
+
+### Features
+
+* 요약 추출 및 요청 제한 처리로 제품 등록 프로세스 향상 ([a2d140d](https://github.com/daechan-jo/auto-store-services-onch/commit/a2d140d1511f597a6dd64b1c34ff58b43c1391a3))
+* 일일 요청 제한 처리 로직 추가 ([ae2bd50](https://github.com/daechan-jo/auto-store-services-onch/commit/ae2bd50166b51838cc23fde9a925721cf5d98d83))
+* 작업 데이터에 제품 등록 요약 추가 ([4551418](https://github.com/daechan-jo/auto-store-services-onch/commit/4551418ef672e201fbdfabc1a5f97afc06a2e567))
+
 # [1.3.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.2.0...v1.3.0) (2025-04-07)
 
 
