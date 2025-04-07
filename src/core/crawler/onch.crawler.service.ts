@@ -479,6 +479,9 @@ export class OnchCrawlerService {
       // 작업 결과 저장
       const results: ProductRegistrationResult[] = [];
 
+      // 일일 요청 제한 플래그
+      let dailyLimitReached = false;
+
       // repeat 횟수만큼 페이지 이동하며 처리
       for (let currentPage = 1; currentPage <= repeatCount; currentPage++) {
         const pageUrl = currentPage === 1 ? baseUrl : `${baseUrl}&page=${currentPage}`;
@@ -526,9 +529,33 @@ export class OnchCrawlerService {
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            // todo 일일 요청 제한
             // https://www.onch3.co.kr/coupang_api/addItem_test.php
             // {"code":"ERROR","message":"[[A01294522]가 오늘 등록할 수 있는 구매옵션 개수(5000)를 초과하였습니다. 내일 다시 요청해주세요. 현재까지 요청: 5000, 현재요청: 4.]","data":null,"details":null,"errorItems":null}
+            const responsePromise = onchPage.waitForResponse(
+              (response) => response.url().includes('/coupang_api/addItem_test.php'),
+              { timeout: 30000 },
+            );
+
+            const response = await responsePromise;
+            const responseBody = await response.json();
+
+            if (
+              responseBody.code === 'ERROR' &&
+              responseBody.message &&
+              responseBody.message.includes('오늘 등록할 수 있는 구매옵션 개수') &&
+              responseBody.message.includes('초과하였습니다')
+            ) {
+              results.push({
+                page: currentPage,
+                success: false,
+                alertMessage: responseBody.message,
+                errorMessage: '일일요청제한',
+              });
+
+              // 전체 반복문 종료 플래그 설정
+              dailyLimitReached = true;
+              break;
+            }
 
             // 알럿 대화상자 처리 (최대 10분 대기)
             let alertMessage = '';
@@ -551,16 +578,32 @@ export class OnchCrawlerService {
             if (alertMessage.includes('상품을 선택해 주세요')) {
               console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
               break;
+            } else if (
+              alertMessage.includes('오늘 등록할 수 있는 구매옵션 개수') &&
+              alertMessage.includes('초과하였습니다')
+            ) {
+              // 일일 요청 제한에 걸린 경우
+              console.log(`${jobType}${jobId}: 알럿 메시지에서 일일 요청 제한 확인됨.`);
+              results.push({
+                page: currentPage,
+                success: false,
+                alertMessage: alertMessage,
+                errorMessage: '일일요청제한',
+              });
+
+              // 전체 반복문 종료 플래그 설정
+              dailyLimitReached = true;
+              break;
+            } else {
+              results.push({
+                page: currentPage,
+                success: true,
+                alertMessage: alertMessage,
+                errorMessage: '',
+              });
+
+              success = true;
             }
-
-            results.push({
-              page: currentPage,
-              success: true,
-              alertMessage: alertMessage,
-              errorMessage: '',
-            });
-
-            success = true;
           } catch (error: any) {
             retryCount++;
             console.warn(
