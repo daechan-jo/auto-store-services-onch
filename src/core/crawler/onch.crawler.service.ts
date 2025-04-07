@@ -526,6 +526,10 @@ export class OnchCrawlerService {
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
+            // todo 일일 요청 제한
+            // https://www.onch3.co.kr/coupang_api/addItem_test.php
+            // {"code":"ERROR","message":"[[A01294522]가 오늘 등록할 수 있는 구매옵션 개수(5000)를 초과하였습니다. 내일 다시 요청해주세요. 현재까지 요청: 5000, 현재요청: 4.]","data":null,"details":null,"errorItems":null}
+
             // 알럿 대화상자 처리 (최대 10분 대기)
             let alertMessage = '';
             const dialogPromise = new Promise<string>((resolve) => {
@@ -543,6 +547,11 @@ export class OnchCrawlerService {
 
             await Promise.race([dialogPromise, timeoutPromise]);
             console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 처리 완료`);
+
+            if (alertMessage.includes('상품을 선택해 주세요')) {
+              console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
+              break;
+            }
 
             results.push({
               page: currentPage,

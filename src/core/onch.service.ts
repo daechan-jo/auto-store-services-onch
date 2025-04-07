@@ -143,6 +143,10 @@ export class OnchService {
     const job = await this.onchBullQueue.getJob(jobId);
     if (job) {
       await job.remove();
+
+      if (await job.isActive()) {
+        await job.discard();
+      }
     }
   }
 
