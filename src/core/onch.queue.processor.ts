@@ -33,14 +33,13 @@ export class MessageQueueProcessor {
         failCount: 0,
         alreadyRegisteredCount: 0,
         duplicateNameCount: 0,
+        failedPage: 0,
         totalProcessed: 0,
       };
 
       results.forEach((result) => {
         if (result.success && result.alertMessage) {
-          const counts: ProductRegistrationSummary = this.extractRegistrationCounts(
-            result.alertMessage,
-          );
+          const counts = this.extractRegistrationCounts(result.alertMessage);
 
           summary.successCount += counts.successCount;
           summary.failCount += counts.failCount;
@@ -48,13 +47,17 @@ export class MessageQueueProcessor {
           summary.duplicateNameCount += counts.duplicateNameCount;
           summary.totalProcessed += counts.totalProcessed;
         }
+
+        if (result.success === false) {
+          summary.failedPage += 1;
+        }
       });
 
-      await this.rabbitmqService.send('mail-queue', 'sendProductRegistrationSummary', {
+      await this.rabbitmqService.emit('mail-queue', 'sendProductRegistrationSummary', {
         jobId: payload.jobId,
         jobType: payload.jobType,
-        jobQueueId: id,
-        jobName: name,
+        jobQueueId: job.id,
+        jobName: job.name,
         summary: summary,
       });
     } catch (error: any) {

@@ -336,6 +336,12 @@ export class OnchCrawlerService {
           return part[part.length - 1].trim();
         });
 
+        // todo 디버깅용
+        console.log(`${jobType}${jobId}: 주문 - ${i}/${orders.length}`);
+        console.log(`${jobType}${jobId}: 상품코드 - ${productCode}`);
+        console.log(`${jobType}${jobId}: 상품명 - ${productName}`);
+        console.log(`${jobType}${jobId}: 옵션 - ${options}`);
+
         try {
           // 상품검색
           await this.automaticOrderingProvider.searchProduct(onchPage, productCode, jobId, jobType);
@@ -486,6 +492,12 @@ export class OnchCrawlerService {
 
       // repeat 횟수만큼 페이지 이동하며 처리
       for (let currentPage = 1; currentPage <= repeatCount; currentPage++) {
+        // 일일 요청 제한에 걸렸으면 더 이상 처리하지 않음
+        if (dailyLimitReached) {
+          console.log(`${jobType}${jobId}: 일일 요청 제한으로 인해 남은 페이지 처리 중단`);
+          break;
+        }
+
         const pageUrl = currentPage === 1 ? baseUrl : `${baseUrl}&page=${currentPage}`;
         console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 처리 시작`);
 
@@ -523,43 +535,66 @@ export class OnchCrawlerService {
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
+            // API 응답 캡처를 위한 네트워크 이벤트 설정
+            let apiResponseCaptured = false;
+            let apiResponseError = '';
+
+            const responseHandler = async (response) => {
+              if (response.url().includes('onch3.co.kr/coupang_api/addItem_test.php')) {
+                try {
+                  const respText = await response.text();
+                  if (
+                    respText.includes('일일 요청 제한') ||
+                    respText.includes('등록할 수 있는 구매옵션 개수') ||
+                    respText.includes('내일 다시 요청해주세요')
+                  ) {
+                    console.log(`${jobType}${jobId}: API 제한 감지 - ${respText}`);
+                    apiResponseError = respText;
+                    apiResponseCaptured = true;
+                  }
+                } catch (e) {
+                  console.error(`${jobType}${jobId}: 응답 파싱 실패`, e);
+                }
+              }
+            };
+
+            // 응답 리스너 추가
+            onchPage.on('response', responseHandler);
+
             // 전송하기 버튼 클릭
             const submitButtonSelector =
               'body > div.content_wrap > section > div > div.coupang_modi_layer > div.smart_title > div.api_order_wrap > div > button.coupang_modi_btn';
+
             await onchPage.waitForSelector(submitButtonSelector, { timeout: 1000 });
             await onchPage.click(submitButtonSelector);
+            // await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            // 일일 제한 응답 체크를 위한 최대 대기 시간 (밀리초)
+            const API_RESPONSE_WAIT_TIME = 5000;
+            let startTime = Date.now();
 
-            // https://www.onch3.co.kr/coupang_api/addItem_test.php
-            // {"code":"ERROR","message":"[[A01294522]가 오늘 등록할 수 있는 구매옵션 개수(5000)를 초과하였습니다. 내일 다시 요청해주세요. 현재까지 요청: 5000, 현재요청: 4.]","data":null,"details":null,"errorItems":null}
-            const responsePromise = onchPage.waitForResponse(
-              (response) => response.url().includes('/coupang_api/addItem_test.php'),
-              { timeout: 30000 },
-            );
+            // 일일 제한 체크 루프
+            while (Date.now() - startTime < API_RESPONSE_WAIT_TIME) {
+              if (apiResponseCaptured) {
+                console.log(`${jobType}${jobId}: 일일 요청 제한 감지됨`);
+                await this.rabbitmqService.emit('mail-queue', 'sendDailyLimitReached', {
+                  jobId,
+                  jobType,
+                });
 
-            const response = await responsePromise;
-            const responseBody = await response.json();
+                // 전체 반복문 종료 플래그 설정
+                dailyLimitReached = true;
+                break;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms마다 체크
+            }
 
-            if (
-              responseBody.code === 'ERROR' &&
-              responseBody.message &&
-              responseBody.message.includes('오늘 등록할 수 있는 구매옵션 개수') &&
-              responseBody.message.includes('초과하였습니다')
-            ) {
-              results.push({
-                page: currentPage,
-                success: false,
-                alertMessage: responseBody.message,
-                errorMessage: '일일요청제한',
-              });
-
-              // 전체 반복문 종료 플래그 설정
-              dailyLimitReached = true;
+            // 일일 요청 제한에 걸린 경우 전체 루프 종료
+            if (dailyLimitReached) {
               break;
             }
 
-            // 알럿 대화상자 처리 (최대 10분 대기)
+            // 알럿 대화상자 처리
             let alertMessage = '';
             const dialogPromise = new Promise<string>((resolve) => {
               onchPage.once('dialog', async (dialog) => {
@@ -575,24 +610,14 @@ export class OnchCrawlerService {
             });
 
             await Promise.race([dialogPromise, timeoutPromise]);
+
+            // 응답 리스너 제거
+            onchPage.removeListener('response', responseHandler);
+
             console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 처리 완료`);
 
             if (alertMessage.includes('상품을 선택해 주세요')) {
               console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
-              break;
-            } else if (
-              alertMessage.includes('오늘 등록할 수 있는 구매옵션 개수') &&
-              alertMessage.includes('초과하였습니다')
-            ) {
-              // 일일 요청 제한에 걸린 경우
-              console.log(`${jobType}${jobId}: 일일 요청 제한`);
-              await this.rabbitmqService.emit('mail-queue', 'sendDailyLimitReached', {
-                jobId,
-                jobType,
-              });
-
-              // 전체 반복문 종료 플래그 설정
-              dailyLimitReached = true;
               break;
             } else {
               results.push({
@@ -624,7 +649,7 @@ export class OnchCrawlerService {
         }
       }
 
-      console.log(`${jobType}${jobId}: 모든 페이지 처리 완료. 결과:`, results);
+      console.log(`${jobType}${jobId}: 모든 페이지 처리 완료.`);
 
       return results;
     } catch (error: any) {
@@ -652,6 +677,10 @@ export class OnchCrawlerService {
     await onchPage.waitForLoadState('networkidle');
 
     // 운송 데이터 추출
-    return await this.requestNotificationProvider.requestNotification(onchPage);
+    const noti = await this.requestNotificationProvider.requestNotification(onchPage);
+
+    await this.playwrightService.releaseContext(contextId);
+
+    return noti;
   }
 }

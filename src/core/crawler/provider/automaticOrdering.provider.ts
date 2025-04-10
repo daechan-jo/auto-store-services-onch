@@ -97,7 +97,8 @@ export class AutomaticOrderingProvider {
       }));
     });
 
-    console.log(`${jobType}${jobId}: 찾은 옵션 개수: ${allOptions.length}`);
+    console.log(`${jobType}${jobId}: 찾은 옵션`);
+    console.log(JSON.stringify(allOptions, null, 2));
 
     let previousSelectedCount = 0;
 
@@ -126,10 +127,6 @@ export class AutomaticOrderingProvider {
         );
         throw new Error(errorMsg);
       }
-
-      console.log(
-        `${jobType}${jobId}: 선택할 옵션 - "${targetOption.text}" (값: ${targetOption.value})`,
-      );
 
       const currentSelectedCount = await page.evaluate(() => {
         return document.querySelectorAll('.selectedOption li').length;
@@ -165,6 +162,12 @@ export class AutomaticOrderingProvider {
 
         // 항목 개수 업데이트
         previousSelectedCount = newItemIndex;
+
+        // todo 디버깅
+        console.log(`${jobType}${jobId}: 주문 옵션 분해 - ${optionParts}`);
+        console.log(`${jobType}${jobId}: 분해옵션 0 인덱스 - ${rawItemOption}`);
+        console.log(`${jobType}${jobId}: 정규화된 옵션 - ${itemOption}`);
+        console.log(`${jobType}${jobId}: 타겟 옵션 - ${JSON.stringify(targetOption)}`);
       } catch (error) {
         console.error(`${JobType.ERROR}${jobType}${jobId}: 옵션 선택 중 오류 발생`, error);
         throw error;

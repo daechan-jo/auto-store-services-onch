@@ -44,8 +44,6 @@ import { RequestNotificationProvider } from './core/crawler/provider/requestNoti
         prefix: '{bull}',
         defaultJobOptions: {
           removeOnComplete: {
-            // 완료된 작업은 하루 후 삭제
-            // age: 24 * 60 * 60 * 1000,
             age: 7 * 24 * 60 * 60 * 1000,
             count: 1000,
           },
@@ -53,7 +51,7 @@ import { RequestNotificationProvider } from './core/crawler/provider/requestNoti
             age: 7 * 24 * 60 * 60 * 1000, // 실패한 작업은 일주일 후 삭제
             count: 1000,
           },
-          attempts: 100,
+          attempts: 5,
           backoff: {
             type: 'fixed',
             delay: 5000,
@@ -93,15 +91,15 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     private readonly onchCrawlerService: OnchCrawlerService,
   ) {}
 
-  async onModuleInit() {
-    await this.queue.clean(0, 'delayed'); // 지연된 작업 제거
-    await this.queue.clean(0, 'wait'); // 대기 중인 작업 제거
-    await this.queue.clean(0, 'active'); // 활성 작업 제거
-    await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
-    console.log('Bull 대기열 초기화');
-  }
+  async onModuleInit() {}
 
   async onApplicationBootstrap() {
+    await this.queue.clean(0, 'delayed'); // 지연된 작업 제거
+    await this.queue.clean(0, 'wait'); // 대기 중인 작업 제거paused
+    await this.queue.clean(0, 'active'); // 활성 작업 제거
+    await this.queue.clean(0, 'paused'); // 활성 작업 제거
+    await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
+
     setTimeout(async () => {
       this.playwrightService.setConfig(true, 'chromium');
       await this.playwrightService.initializeBrowser();
