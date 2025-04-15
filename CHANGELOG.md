@@ -1,3 +1,12 @@
+# [1.5.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.4.0...v1.5.0) (2025-04-15)
+
+
+### Features
+
+* 개선된 디버깅 로그 추가 및 store 인자 제거 ([d41e12d](https://github.com/daechan-jo/auto-store-services-onch/commit/d41e12d28aa1e049d091d3fa972212f654f3236a))
+* 개선된 요청 제한 처리 및 디버깅 로그 추가 ([aa3a58c](https://github.com/daechan-jo/auto-store-services-onch/commit/aa3a58c189f780787dcb5dad5acad8bf21b421a2))
+* 일일 한도 알림 및 제품 등록 요약 추가 ([6e21bfc](https://github.com/daechan-jo/auto-store-services-onch/commit/6e21bfca06214e119645ae2111dc380b96c7a6ef))
+
 # [1.4.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.3.0...v1.4.0) (2025-04-07)
 
 
