@@ -177,7 +177,15 @@ export class OnchService {
       const isNoti = await this.onchCrawlerService.requestNotification(jobId, store);
 
       if (isNoti) {
-        await this.rabbitmqService.emit('mail-queue', 'sendNewNotification', { jobId, jobType });
+        await this.rabbitmqService.emit('mail-queue', 'sendNotification', {
+          jobId,
+          jobType,
+          jobName: '온채널 신규 메시지 안내',
+          data: {
+            title: 'ON채널 요청함 확인 요망',
+            message: '확인하지 않은 새로운 요청이 있습니다.',
+          },
+        });
       }
     } catch (error: any) {
       console.error(`${JobType.ERROR}${jobType}${jobId}: 알림 추출중 에러 발생\n`, error);

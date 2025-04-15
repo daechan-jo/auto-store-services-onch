@@ -59,12 +59,7 @@ export class OnchMessageController implements OnModuleInit, OnModuleDestroy {
         return { status: 'success' };
 
       case 'deleteProducts':
-        await this.onchCrawlerService.deleteProducts(
-          payload.jobId,
-          payload.jobType,
-          payload.store,
-          payload.data,
-        );
+        await this.onchCrawlerService.deleteProducts(payload.jobId, payload.jobType, payload.data);
         break;
 
       case 'crawlingOnchSoldoutProducts':

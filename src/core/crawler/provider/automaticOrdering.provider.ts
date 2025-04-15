@@ -97,9 +97,6 @@ export class AutomaticOrderingProvider {
       }));
     });
 
-    console.log(`${jobType}${jobId}: 찾은 옵션`);
-    console.log(JSON.stringify(allOptions, null, 2));
-
     let previousSelectedCount = 0;
 
     for (const item of items) {
@@ -115,6 +112,14 @@ export class AutomaticOrderingProvider {
           !opt.disabled &&
           (normalizeText(opt.text) === itemOption || normalizeText(opt.text).includes(itemOption)),
       );
+
+      // todo 디버깅
+      console.log(`${jobType}${jobId}: 주문 옵션 분해 - ${optionParts}`);
+      console.log(`${jobType}${jobId}: 주문 분해옵션 0 인덱스 - ${rawItemOption}`);
+      console.log(`${jobType}${jobId}: 주문 정규화된 옵션 - ${itemOption}`);
+      console.log(JSON.stringify(allOptions, null, 2));
+      console.log(`${jobType}${jobId}: 선택가능옵션 - ${JSON.stringify(allOptions, null, 2)}`);
+      console.log(`${jobType}${jobId}: 타겟 옵션 - ${JSON.stringify(targetOption)}`);
 
       if (!targetOption) {
         const errorMsg = `${JobType.ERROR}${jobType}${jobId}: 옵션을 찾을 수 없습니다 "${itemOption}"`;
@@ -162,12 +167,6 @@ export class AutomaticOrderingProvider {
 
         // 항목 개수 업데이트
         previousSelectedCount = newItemIndex;
-
-        // todo 디버깅
-        console.log(`${jobType}${jobId}: 주문 옵션 분해 - ${optionParts}`);
-        console.log(`${jobType}${jobId}: 분해옵션 0 인덱스 - ${rawItemOption}`);
-        console.log(`${jobType}${jobId}: 정규화된 옵션 - ${itemOption}`);
-        console.log(`${jobType}${jobId}: 타겟 옵션 - ${JSON.stringify(targetOption)}`);
       } catch (error) {
         console.error(`${JobType.ERROR}${jobType}${jobId}: 옵션 선택 중 오류 발생`, error);
         throw error;

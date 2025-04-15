@@ -58,7 +58,7 @@ export class MessageQueueProcessor {
         jobType: payload.jobType,
         jobQueueId: job.id,
         jobName: job.name,
-        summary: summary,
+        data: summary,
       });
     } catch (error: any) {
       console.error(`${payload.jobType}${payload.jobId}: 작업 처리 중 오류 발생`, error);

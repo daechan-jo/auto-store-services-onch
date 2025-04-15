@@ -74,7 +74,6 @@ export class DeleteProductsProvider {
   async performBatchDeletion(
     contextId: string,
     jobId: string,
-    store: string,
     jobType: string,
     productCodes: string[],
   ): Promise<{ successCount: number; failedCount: number }> {
@@ -89,15 +88,21 @@ export class DeleteProductsProvider {
 
     try {
       // 최초 로그인
-      const firstPageId = `page-${store}-${jobId}-0`;
+      const firstPageId = `page-${jobType}-${jobId}-0`;
       pageIds.push(firstPageId);
-      const firstPage = await this.playwrightService.loginToOnchSite(store, contextId, firstPageId);
+
+      // todo store 인자 제거..
+      const firstPage = await this.playwrightService.loginToOnchSite(
+        'linkedout',
+        contextId,
+        firstPageId,
+      );
       await new Promise((resolve) => setTimeout(resolve, 1000));
       pages.push(firstPage);
 
       // 추가 작업자(페이지) 생성
       for (let i = 0; i < PARALLEL_WORKERS - 1; i++) {
-        const pageId = `page-${store}-${jobId}-${i + 1}`;
+        const pageId = `page-${jobType}-${jobId}-${i + 1}`;
         pageIds.push(pageId);
         const page = await this.playwrightService.createPage(contextId, pageId);
         pages.push(page);
@@ -120,7 +125,6 @@ export class DeleteProductsProvider {
       const workerPromises = workerBatches.map(async (batch, index) => {
         if (index < pages.length) {
           const result = await this.deleteProductBatch(
-            store,
             contextId,
             pageIds[index],
             batch,
@@ -165,7 +169,6 @@ export class DeleteProductsProvider {
    * @returns 성공 및 실패 카운트를 포함한 객체
    */
   async deleteProductBatch(
-    store: string,
     contextId: string,
     pageId: string,
     productCodes: string[],
@@ -180,7 +183,6 @@ export class DeleteProductsProvider {
     for (const [i, productCode] of productCodes.entries()) {
       try {
         const result = await this.deleteSingleProduct(
-          store,
           contextId,
           pageId,
           productCode,
@@ -255,7 +257,6 @@ export class DeleteProductsProvider {
    * - 성공/실패 로깅 및 에러 처리
    */
   async deleteSingleProduct(
-    store: string,
     contextId: string,
     pageId: string,
     productCode: string,
@@ -271,7 +272,8 @@ export class DeleteProductsProvider {
       if (existingPage) {
         onchPage = existingPage;
       } else {
-        onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+        // todo store 인자 제거
+        onchPage = await this.playwrightService.loginToOnchSite('linkedout', contextId, pageId);
       }
 
       if (!onchPage) {
@@ -310,7 +312,7 @@ export class DeleteProductsProvider {
 
       // 삭제 버튼 찾기
       const deleteButton = onchPage.locator('a[onclick^="prd_list_del"]');
-      let hasDeleteButton = false;
+      let hasDeleteButton: boolean;
 
       try {
         await deleteButton.waitFor({ state: 'visible', timeout: 5000 });

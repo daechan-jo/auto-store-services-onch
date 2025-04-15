@@ -11,15 +11,18 @@ export class RequestNotificationProvider {
    */
   async requestNotification(onchPage: Page): Promise<boolean> {
     try {
-      // CSS 선택자를 사용하여 알림 이미지 요소가 존재하는지 확인
+      // 공급사 알림
       const notificationSelector =
         'body > center > table > tbody > tr:nth-child(2) > td:nth-child(1) > table > tbody > tr > td > table > tbody > tr:nth-child(3) > td > a > img:nth-child(2)';
-
-      // 요소가 존재하는지 확인 (waitForSelector 대신 selector를 사용하여 존재 여부만 체크)
       const notificationElement = await onchPage.$(notificationSelector);
 
+      // 반품교환 알림
+      const returnNotificationElements = await onchPage.$$(
+        'img[src="./images/new_btn.gif"][style="vertical-align:middle;"]',
+      );
+
       // 요소가 존재하면 true, 없으면 false 반환
-      return notificationElement !== null;
+      return notificationElement !== null || returnNotificationElements.length > 0;
     } catch (error) {
       console.error('알림 확인 중 오류 발생:', error);
       return false; // 오류 발생 시 알림 없는 것으로 처리

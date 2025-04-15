@@ -60,7 +60,6 @@ export class OnchCrawlerService {
    */
   async deleteProducts(
     jobId: string,
-    store: string,
     jobType: string,
     data:
       | OnchWithCoupangProduct[]
@@ -69,7 +68,7 @@ export class OnchCrawlerService {
       | CoupangComparisonWithOnchData[],
   ): Promise<void> {
     console.log(`${jobType}${jobId}: 온채널 품절상품 삭제`);
-    const contextId = `context-${store}-${jobId}`;
+    const contextId = `context-${jobType}-${jobId}`;
 
     // 상품 코드 추출
     const productCodesArray = this.deleteProductsProvider.extractProductCodes(data);
@@ -88,7 +87,6 @@ export class OnchCrawlerService {
       const result = await this.deleteProductsProvider.performBatchDeletion(
         contextId,
         jobId,
-        store,
         jobType,
         productCodesArray,
       );
@@ -337,10 +335,12 @@ export class OnchCrawlerService {
         });
 
         // todo 디버깅용
-        console.log(`${jobType}${jobId}: 주문 - ${i}/${orders.length}`);
+        console.log(`${jobType}${jobId}: 주문 - ${i + 1}/${orders.length}`);
+        console.log(`${jobType}${jobId}: 오리진 주문 ${JSON.stringify(order)}`);
         console.log(`${jobType}${jobId}: 상품코드 - ${productCode}`);
         console.log(`${jobType}${jobId}: 상품명 - ${productName}`);
-        console.log(`${jobType}${jobId}: 옵션 - ${options}`);
+        console.log(`${jobType}${jobId}: 가공된 옵션 배열 - ${options}`);
+        console.log(`${jobType}${jobId}: 오리진 옵션 ${JSON.stringify(options)}`);
 
         try {
           // 상품검색
@@ -518,6 +518,8 @@ export class OnchCrawlerService {
                 console.log(`${jobType}${jobId}: 페이지네이션 요소를 찾을 수 없음, 계속 진행`),
               );
 
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
             // 전체선택 체크박스 클릭
             const checkAllSelector =
               'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div.btn_chk_all > label';
@@ -539,7 +541,7 @@ export class OnchCrawlerService {
             let apiResponseCaptured = false;
             let apiResponseError = '';
 
-            const responseHandler = async (response) => {
+            const responseHandler = async (response: any) => {
               if (response.url().includes('onch3.co.kr/coupang_api/addItem_test.php')) {
                 try {
                   const respText = await response.text();
@@ -567,7 +569,8 @@ export class OnchCrawlerService {
 
             await onchPage.waitForSelector(submitButtonSelector, { timeout: 1000 });
             await onchPage.click(submitButtonSelector);
-            // await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            await new Promise((resolve) => setTimeout(resolve, 1000));
 
             // 일일 제한 응답 체크를 위한 최대 대기 시간 (밀리초)
             const API_RESPONSE_WAIT_TIME = 5000;
@@ -577,9 +580,14 @@ export class OnchCrawlerService {
             while (Date.now() - startTime < API_RESPONSE_WAIT_TIME) {
               if (apiResponseCaptured) {
                 console.log(`${jobType}${jobId}: 일일 요청 제한 감지됨`);
-                await this.rabbitmqService.emit('mail-queue', 'sendDailyLimitReached', {
+                await this.rabbitmqService.emit('mail-queue', 'sendNotification', {
                   jobId,
                   jobType,
+                  jobName: '일일 상품 등록 요청 제한 안내',
+                  data: {
+                    title: '쿠팡 상품 등록 불가',
+                    message: '일일 상품 등록 요청 제한에 도달했습니다. 내일 다시 시도하세요.',
+                  },
                 });
 
                 // 전체 반복문 종료 플래그 설정
@@ -598,6 +606,7 @@ export class OnchCrawlerService {
             let alertMessage = '';
             const dialogPromise = new Promise<string>((resolve) => {
               onchPage.once('dialog', async (dialog) => {
+                console.log(`${jobType}${jobId}: 대화상자 감지 - ${dialog.message()}`);
                 alertMessage = dialog.message();
                 await dialog.accept();
                 resolve(alertMessage);
@@ -609,16 +618,24 @@ export class OnchCrawlerService {
               setTimeout(() => reject(new Error('알럿 대화상자 타임아웃')), 300000);
             });
 
-            await Promise.race([dialogPromise, timeoutPromise]);
+            alertMessage = await Promise.race([dialogPromise, timeoutPromise]);
 
             // 응답 리스너 제거
             onchPage.removeListener('response', responseHandler);
 
             console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 처리 완료`);
 
+            console.log(alertMessage);
+
             if (alertMessage.includes('상품을 선택해 주세요')) {
               console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
               break;
+            } else if (alertMessage.includes('상품 전송에 실패하였습니다')) {
+              console.log(
+                `${jobType}${jobId}: 이 페이지의 모든 상품 등록 실패, 다음 페이지로 진행`,
+              );
+              // 다음 페이지로 진행하기 위해 success를 true로 설정
+              success = true;
             } else {
               results.push({
                 page: currentPage,
@@ -669,14 +686,15 @@ export class OnchCrawlerService {
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    await onchPage.goto('https://www.onch3.co.kr/onch_memo_list.php', {
+    await onchPage.goto('https://www.onch3.co.kr/admin_mem_prd.html', {
       timeout: 60000,
       waitUntil: 'networkidle',
     });
+    // todo add
+    // https://www.onch3.co.kr/admin_mem_prd.html
 
     await onchPage.waitForLoadState('networkidle');
 
-    // 운송 데이터 추출
     const noti = await this.requestNotificationProvider.requestNotification(onchPage);
 
     await this.playwrightService.releaseContext(contextId);
