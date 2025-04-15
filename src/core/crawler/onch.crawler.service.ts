@@ -1,15 +1,12 @@
 import {
-  JobType,
-  OnchProduct,
-  DeliveryData,
-  OnchWithCoupangProduct,
-  CoupangPagingProduct,
   CoupangComparisonWithOnchData,
   CoupangOrder,
+  CoupangPagingProduct,
+  DeliveryData,
+  JobType,
+  OnchProduct,
+  OnchWithCoupangProduct,
   ProductRegistrationReqDto,
-  AdulTypeEncoding,
-  ChannelTypeEncoding,
-  TaxTypeEncoding,
   ProductRegistrationResult,
 } from '@daechanjo/models';
 import { NaverChannelProduct } from '@daechanjo/models/dist/interfaces/naver/naverChannelProduct.interface';
@@ -26,6 +23,7 @@ import { DeliveryExtractionProvider } from './provider/deliveryExtraction.provid
 import { OnchRepository } from '../../infrastructure/repository/onch.repository';
 import { RequestNotificationProvider } from './provider/requestNotification.provider';
 import { RabbitMQService } from '@daechanjo/rabbitmq';
+import { ProductRegistrationProvider } from './provider/productRegistration.provider';
 
 @Injectable()
 export class OnchCrawlerService {
@@ -40,15 +38,18 @@ export class OnchCrawlerService {
     private readonly automaticOrderingProvider: AutomaticOrderingProvider,
     private readonly deliveryExtractionProvider: DeliveryExtractionProvider,
     private readonly requestNotificationProvider: RequestNotificationProvider,
+    private readonly productRegistrationProvider: ProductRegistrationProvider,
   ) {}
 
   /**
    * 쿠팡과 네이버 플랫폼에서 품절된 상품을 온채널에서 삭제합니다.
    *
    * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
-   * @param store - 삭제 작업을 수행할 스토어 이름
    * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
-   * @param data
+   * @param data | OnchWithCoupangProduct[]
+   *       | CoupangPagingProduct[]
+   *       | NaverChannelProduct[]
+   *       | CoupangComparisonWithOnchData[],
    *
    * @returns {Promise<void>} - 삭제 작업 완료 시 해결되는 Promise
    *
@@ -413,7 +414,7 @@ export class OnchCrawlerService {
    * @param store - 스토어 식별자 (온채널 계정 구분용)
    * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
-   * @returns {Promise<OnchSoldout[]>} - 추출된 운송장 정보 배열을 반환하는 Promise
+   * @returns {Promise<DeliveryData[]>} - 추출된 운송장 정보 배열을 반환하는 Promise
    *
    * @description
    * 이 메서드는 온채널 사이트에서 다음 작업을 수행합니다:
@@ -455,6 +456,19 @@ export class OnchCrawlerService {
     }
   }
 
+  /**
+   * 쿠팡에 상품을 등록하는 메인 메서드
+   *
+   * 온채 사이트에 로그인하고, 상품 검색 URL을 생성한 뒤 페이지 처리 서비스를 통해
+   * 각 페이지별로 상품을 등록합니다.
+   *
+   * @param jobId - 작업 고유 식별자
+   * @param jobType - 작업 유형 (배치, 수동 등)
+   * @param store - 스토어 식별자
+   * @param data - 상품 등록에 필요한 데이터 (키워드, 카테고리, 가격 범위 등)
+   * @returns {Promise<ProductRegistrationResult[]>} - 페이지별 상품 등록 결과 배열
+   * @throws 치명적인 오류가 발생한 경우
+   */
   async productRegistration(
     jobId: string,
     jobType: string,
@@ -464,211 +478,23 @@ export class OnchCrawlerService {
     console.log(`${jobType}${jobId}: 상품 등록 시작`);
     const contextId = `context-${jobType}-${jobId}`;
     const pageId = `page-${jobType}-${jobId}`;
-    const MAX_RETRY_COUNT = 3; // 최대 재시도 횟수
     const repeatCount = parseInt(data.repeat || '1', 10); // 기본값 1
 
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     try {
-      const tax = TaxTypeEncoding[data.tax];
-      const adult = AdulTypeEncoding[data.adult];
-      const channel = ChannelTypeEncoding[data.channel];
-      const encodedKeyword = encodeURIComponent(data.keyword);
-      const encodedCategory = encodeURIComponent(data.category || '');
-      const encodedTax = encodeURIComponent(tax || '');
-      const encodedAdult = encodeURIComponent(adult || '');
-      const encodedChannel = encodeURIComponent(channel || '');
-      const encodedLimit = encodeURIComponent(data.limit || '');
+      // URL 생성 책임을 분리
+      const baseUrl = this.productRegistrationProvider.createOnchProductSearchUrl(data);
 
-      // 초기 URL에 limit 추가
-      const baseUrl = `https://www.onch3.co.kr/dbcenter_renewal/index.php?keyword=${encodedKeyword}&cate_f=${encodedCategory}&cate_s=&cate_t=&cate_fr=&sprice=${data.minPrice || ''}&eprice=${data.maxPrice || ''}&tax_type=${encodedTax}&is_adult=${encodedAdult}&search_channel=${encodedChannel}&provider_grade_cls=&provider_sgrade=&agree_sdt=&agree_edt=&send_sprice=&send_eprice=&detail_keyword=&pgn=${encodedLimit}`;
-
-      // 작업 결과 저장
-      const results: ProductRegistrationResult[] = [];
-
-      // 일일 요청 제한 플래그
-      let dailyLimitReached = false;
-
-      // repeat 횟수만큼 페이지 이동하며 처리
-      for (let currentPage = 1; currentPage <= repeatCount; currentPage++) {
-        // 일일 요청 제한에 걸렸으면 더 이상 처리하지 않음
-        if (dailyLimitReached) {
-          console.log(`${jobType}${jobId}: 일일 요청 제한으로 인해 남은 페이지 처리 중단`);
-          break;
-        }
-
-        const pageUrl = currentPage === 1 ? baseUrl : `${baseUrl}&page=${currentPage}`;
-        console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 처리 시작`);
-
-        let retryCount = 0;
-        let success = false;
-
-        while (retryCount < MAX_RETRY_COUNT && !success) {
-          try {
-            // 페이지로 이동
-            await onchPage.goto(pageUrl);
-            await onchPage.waitForLoadState('networkidle');
-
-            // 페이지가 올바르게 로드되었는지 확인 (pagination 요소 확인)
-            const paginationSelector = 'ul.pagination';
-            await onchPage
-              .waitForSelector(paginationSelector, { timeout: 3000 })
-              .catch(() =>
-                console.log(`${jobType}${jobId}: 페이지네이션 요소를 찾을 수 없음, 계속 진행`),
-              );
-
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
-            // 전체선택 체크박스 클릭
-            const checkAllSelector =
-              'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div.btn_chk_all > label';
-            await onchPage.waitForSelector(checkAllSelector, { timeout: 3000 });
-            await onchPage.click(checkAllSelector);
-
-            // 클릭 후 잠시 대기
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
-            // 쿠팡 보내기 버튼 클릭
-            const coupangButtonSelector =
-              'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div:nth-child(4)';
-            await onchPage.waitForSelector(coupangButtonSelector, { timeout: 1000 });
-            await onchPage.click(coupangButtonSelector);
-
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
-            // API 응답 캡처를 위한 네트워크 이벤트 설정
-            let apiResponseCaptured = false;
-            let apiResponseError = '';
-
-            const responseHandler = async (response: any) => {
-              if (response.url().includes('onch3.co.kr/coupang_api/addItem_test.php')) {
-                try {
-                  const respText = await response.text();
-                  if (
-                    respText.includes('일일 요청 제한') ||
-                    respText.includes('등록할 수 있는 구매옵션 개수') ||
-                    respText.includes('내일 다시 요청해주세요')
-                  ) {
-                    console.log(`${jobType}${jobId}: API 제한 감지 - ${respText}`);
-                    apiResponseError = respText;
-                    apiResponseCaptured = true;
-                  }
-                } catch (e) {
-                  console.error(`${jobType}${jobId}: 응답 파싱 실패`, e);
-                }
-              }
-            };
-
-            // 응답 리스너 추가
-            onchPage.on('response', responseHandler);
-
-            // 전송하기 버튼 클릭
-            const submitButtonSelector =
-              'body > div.content_wrap > section > div > div.coupang_modi_layer > div.smart_title > div.api_order_wrap > div > button.coupang_modi_btn';
-
-            await onchPage.waitForSelector(submitButtonSelector, { timeout: 1000 });
-            await onchPage.click(submitButtonSelector);
-
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
-            // 일일 제한 응답 체크를 위한 최대 대기 시간 (밀리초)
-            const API_RESPONSE_WAIT_TIME = 5000;
-            let startTime = Date.now();
-
-            // 일일 제한 체크 루프
-            while (Date.now() - startTime < API_RESPONSE_WAIT_TIME) {
-              if (apiResponseCaptured) {
-                console.log(`${jobType}${jobId}: 일일 요청 제한 감지됨`);
-                await this.rabbitmqService.emit('mail-queue', 'sendNotification', {
-                  jobId,
-                  jobType,
-                  jobName: '일일 상품 등록 요청 제한 안내',
-                  data: {
-                    title: '쿠팡 상품 등록 불가',
-                    message: '일일 상품 등록 요청 제한에 도달했습니다. 내일 다시 시도하세요.',
-                  },
-                });
-
-                // 전체 반복문 종료 플래그 설정
-                dailyLimitReached = true;
-                break;
-              }
-              await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms마다 체크
-            }
-
-            // 일일 요청 제한에 걸린 경우 전체 루프 종료
-            if (dailyLimitReached) {
-              break;
-            }
-
-            // 알럿 대화상자 처리
-            let alertMessage = '';
-            const dialogPromise = new Promise<string>((resolve) => {
-              onchPage.once('dialog', async (dialog) => {
-                console.log(`${jobType}${jobId}: 대화상자 감지 - ${dialog.message()}`);
-                alertMessage = dialog.message();
-                await dialog.accept();
-                resolve(alertMessage);
-              });
-            });
-
-            // 타임아웃 설정
-            const timeoutPromise = new Promise<string>((_, reject) => {
-              setTimeout(() => reject(new Error('알럿 대화상자 타임아웃')), 300000);
-            });
-
-            alertMessage = await Promise.race([dialogPromise, timeoutPromise]);
-
-            // 응답 리스너 제거
-            onchPage.removeListener('response', responseHandler);
-
-            console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 처리 완료`);
-
-            console.log(alertMessage);
-
-            if (alertMessage.includes('상품을 선택해 주세요')) {
-              console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
-              break;
-            } else if (alertMessage.includes('상품 전송에 실패하였습니다')) {
-              console.log(
-                `${jobType}${jobId}: 이 페이지의 모든 상품 등록 실패, 다음 페이지로 진행`,
-              );
-              // 다음 페이지로 진행하기 위해 success를 true로 설정
-              success = true;
-            } else {
-              results.push({
-                page: currentPage,
-                success: true,
-                alertMessage: alertMessage,
-                errorMessage: '',
-              });
-
-              success = true;
-            }
-          } catch (error: any) {
-            retryCount++;
-            console.warn(
-              `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 오류 발생, 재시도 (${retryCount}/${MAX_RETRY_COUNT}): ${error.message}`,
-            );
-
-            if (retryCount >= MAX_RETRY_COUNT) {
-              results.push({
-                page: currentPage,
-                success: false,
-                alertMessage: '',
-                errorMessage: error.message,
-              });
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 2000)); // 재시도 전 대기
-          }
-        }
-      }
-
-      console.log(`${jobType}${jobId}: 모든 페이지 처리 완료.`);
-
-      return results;
+      // 페이지 처리 책임을 분리
+      return await this.productRegistrationProvider.processPages(
+        onchPage,
+        baseUrl,
+        repeatCount,
+        jobId,
+        jobType,
+      );
     } catch (error: any) {
       console.error(`${JobType.ERROR}${jobType}${jobId}: 전체 작업 중 치명적 오류 발생`, error);
       throw error;
@@ -677,6 +503,239 @@ export class OnchCrawlerService {
     }
   }
 
+  // async productRegistration(
+  //   jobId: string,
+  //   jobType: string,
+  //   store: string,
+  //   data: ProductRegistrationReqDto,
+  // ): Promise<ProductRegistrationResult[]> {
+  //   console.log(`${jobType}${jobId}: 상품 등록 시작`);
+  //   const contextId = `context-${jobType}-${jobId}`;
+  //   const pageId = `page-${jobType}-${jobId}`;
+  //   const MAX_RETRY_COUNT = 3; // 최대 재시도 횟수
+  //   const repeatCount = parseInt(data.repeat || '1', 10); // 기본값 1
+  //
+  //   const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
+  //   await new Promise((resolve) => setTimeout(resolve, 1000));
+  //
+  //   try {
+  //     const tax = TaxTypeEncoding[data.tax];
+  //     const adult = AdulTypeEncoding[data.adult];
+  //     const channel = ChannelTypeEncoding[data.channel];
+  //     const encodedKeyword = encodeURIComponent(data.keyword);
+  //     const encodedCategory = encodeURIComponent(data.category || '');
+  //     const encodedTax = encodeURIComponent(tax || '');
+  //     const encodedAdult = encodeURIComponent(adult || '');
+  //     const encodedChannel = encodeURIComponent(channel || '');
+  //     const encodedLimit = encodeURIComponent(data.limit || '');
+  //
+  //     // 초기 URL에 limit 추가
+  //     const baseUrl = `https://www.onch3.co.kr/dbcenter_renewal/index.php?keyword=${encodedKeyword}&cate_f=${encodedCategory}&cate_s=&cate_t=&cate_fr=&sprice=${data.minPrice || ''}&eprice=${data.maxPrice || ''}&tax_type=${encodedTax}&is_adult=${encodedAdult}&search_channel=${encodedChannel}&provider_grade_cls=&provider_sgrade=&agree_sdt=&agree_edt=&send_sprice=&send_eprice=&detail_keyword=&pgn=${encodedLimit}`;
+  //
+  //     // 작업 결과 저장
+  //     const results: ProductRegistrationResult[] = [];
+  //
+  //     // 일일 요청 제한 플래그
+  //     let dailyLimitReached = false;
+  //
+  //     // repeat 횟수만큼 페이지 이동하며 처리
+  //     for (let currentPage = 1; currentPage <= repeatCount; currentPage++) {
+  //       // 일일 요청 제한에 걸렸으면 더 이상 처리하지 않음
+  //       if (dailyLimitReached) {
+  //         console.log(`${jobType}${jobId}: 일일 요청 제한으로 인해 남은 페이지 처리 중단`);
+  //         break;
+  //       }
+  //
+  //       const pageUrl = currentPage === 1 ? baseUrl : `${baseUrl}&page=${currentPage}`;
+  //       console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 처리 시작`);
+  //
+  //       let retryCount = 0;
+  //       let success = false;
+  //
+  //       while (retryCount < MAX_RETRY_COUNT && !success) {
+  //         try {
+  //           // 페이지로 이동
+  //           await onchPage.goto(pageUrl);
+  //           await onchPage.waitForLoadState('networkidle');
+  //
+  //           // 페이지가 올바르게 로드되었는지 확인 (pagination 요소 확인)
+  //           const paginationSelector = 'ul.pagination';
+  //           await onchPage
+  //             .waitForSelector(paginationSelector, { timeout: 3000 })
+  //             .catch(() =>
+  //               console.log(`${jobType}${jobId}: 페이지네이션 요소를 찾을 수 없음, 계속 진행`),
+  //             );
+  //
+  //           await new Promise((resolve) => setTimeout(resolve, 1000));
+  //
+  //           // 전체선택 체크박스 클릭
+  //           const checkAllSelector =
+  //             'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div.btn_chk_all > label';
+  //           await onchPage.waitForSelector(checkAllSelector, { timeout: 3000 });
+  //           await onchPage.click(checkAllSelector);
+  //
+  //           // 클릭 후 잠시 대기
+  //           await new Promise((resolve) => setTimeout(resolve, 1000));
+  //
+  //           // 쿠팡 보내기 버튼 클릭
+  //           const coupangButtonSelector =
+  //             'body > div.content_wrap > section > div > div.db_sub_menu.excel_download_section > div:nth-child(1) > div:nth-child(4)';
+  //           await onchPage.waitForSelector(coupangButtonSelector, { timeout: 1000 });
+  //           await onchPage.click(coupangButtonSelector);
+  //
+  //           await new Promise((resolve) => setTimeout(resolve, 1000));
+  //
+  //           // API 응답 캡처를 위한 네트워크 이벤트 설정
+  //           let apiResponseCaptured = false;
+  //           let apiResponseError = '';
+  //
+  //           const responseHandler = async (response: any) => {
+  //             if (response.url().includes('onch3.co.kr/coupang_api/addItem_test.php')) {
+  //               try {
+  //                 const respText = await response.text();
+  //                 if (
+  //                   respText.includes('일일 요청 제한') ||
+  //                   respText.includes('등록할 수 있는 구매옵션 개수') ||
+  //                   respText.includes('내일 다시 요청해주세요')
+  //                 ) {
+  //                   console.log(`${jobType}${jobId}: API 제한 감지 - ${respText}`);
+  //                   apiResponseError = respText;
+  //                   apiResponseCaptured = true;
+  //                 }
+  //               } catch (e) {
+  //                 console.error(`${jobType}${jobId}: 응답 파싱 실패`, e);
+  //               }
+  //             }
+  //           };
+  //
+  //           // 응답 리스너 추가
+  //           onchPage.on('response', responseHandler);
+  //
+  //           // 전송하기 버튼 클릭
+  //           const submitButtonSelector =
+  //             'body > div.content_wrap > section > div > div.coupang_modi_layer > div.smart_title > div.api_order_wrap > div > button.coupang_modi_btn';
+  //
+  //           await onchPage.waitForSelector(submitButtonSelector, { timeout: 1000 });
+  //           await onchPage.click(submitButtonSelector);
+  //
+  //           await new Promise((resolve) => setTimeout(resolve, 1000));
+  //
+  //           // 일일 제한 응답 체크를 위한 최대 대기 시간 (밀리초)
+  //           const API_RESPONSE_WAIT_TIME = 5000;
+  //           let startTime = Date.now();
+  //
+  //           // 일일 제한 체크 루프
+  //           while (Date.now() - startTime < API_RESPONSE_WAIT_TIME) {
+  //             if (apiResponseCaptured) {
+  //               console.log(`${jobType}${jobId}: 일일 요청 제한 감지됨`);
+  //               await this.rabbitmqService.emit('mail-queue', 'sendNotification', {
+  //                 jobId,
+  //                 jobType,
+  //                 jobName: '일일 상품 등록 요청 제한 안내',
+  //                 data: {
+  //                   title: '쿠팡 상품 등록 불가',
+  //                   message: '일일 상품 등록 요청 제한에 도달했습니다. 내일 다시 시도하세요.',
+  //                 },
+  //               });
+  //
+  //               // 전체 반복문 종료 플래그 설정
+  //               dailyLimitReached = true;
+  //               break;
+  //             }
+  //             await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms마다 체크
+  //           }
+  //
+  //           // 일일 요청 제한에 걸린 경우 전체 루프 종료
+  //           if (dailyLimitReached) {
+  //             break;
+  //           }
+  //
+  //           // 알럿 대화상자 처리
+  //           let alertMessage = '';
+  //           const dialogPromise = new Promise<string>((resolve) => {
+  //             onchPage.once('dialog', async (dialog) => {
+  //               console.log(`${jobType}${jobId}: 대화상자 감지 - ${dialog.message()}`);
+  //               alertMessage = dialog.message();
+  //               await dialog.accept();
+  //               resolve(alertMessage);
+  //             });
+  //           });
+  //
+  //           // 타임아웃 설정
+  //           const timeoutPromise = new Promise<string>((_, reject) => {
+  //             setTimeout(() => reject(new Error('알럿 대화상자 타임아웃')), 300000);
+  //           });
+  //
+  //           alertMessage = await Promise.race([dialogPromise, timeoutPromise]);
+  //
+  //           // 응답 리스너 제거
+  //           onchPage.removeListener('response', responseHandler);
+  //
+  //           console.log(`${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 처리 완료`);
+  //
+  //           console.log(alertMessage);
+  //
+  //           if (alertMessage.includes('상품을 선택해 주세요')) {
+  //             console.log(`${jobType}${jobId}: 더 이상 상품이 없음. 반복 중단`);
+  //             break;
+  //           } else if (alertMessage.includes('상품 전송에 실패하였습니다')) {
+  //             console.log(
+  //               `${jobType}${jobId}: 이 페이지의 모든 상품 등록 실패, 다음 페이지로 진행`,
+  //             );
+  //             // 다음 페이지로 진행하기 위해 success를 true로 설정
+  //             success = true;
+  //           } else {
+  //             results.push({
+  //               page: currentPage,
+  //               success: true,
+  //               alertMessage: alertMessage,
+  //               errorMessage: '',
+  //             });
+  //
+  //             success = true;
+  //           }
+  //         } catch (error: any) {
+  //           retryCount++;
+  //           console.warn(
+  //             `${jobType}${jobId}: ${currentPage}/${repeatCount} 페이지 - 오류 발생, 재시도 (${retryCount}/${MAX_RETRY_COUNT}): ${error.message}`,
+  //           );
+  //
+  //           if (retryCount >= MAX_RETRY_COUNT) {
+  //             results.push({
+  //               page: currentPage,
+  //               success: false,
+  //               alertMessage: '',
+  //               errorMessage: error.message,
+  //             });
+  //           }
+  //
+  //           await new Promise((resolve) => setTimeout(resolve, 2000)); // 재시도 전 대기
+  //         }
+  //       }
+  //     }
+  //
+  //     console.log(`${jobType}${jobId}: 모든 페이지 처리 완료.`);
+  //
+  //     return results;
+  //   } catch (error: any) {
+  //     console.error(`${JobType.ERROR}${jobType}${jobId}: 전체 작업 중 치명적 오류 발생`, error);
+  //     throw error;
+  //   } finally {
+  //     await this.playwrightService.releaseContext(contextId);
+  //   }
+  // }
+
+  /**
+   * 온채 사이트에서 새로운 알림이 있는지 확인하는 메서드
+   *
+   * 온채 사이트에 로그인하고 관리자 페이지로 이동하여 새로운 알림(공급사 알림, 반품/교환 알림)이
+   * 있는지 확인합니다. 로그인부터 페이지 접근, 알림 확인, 컨텍스트 해제까지의 전체 프로세스를 처리합니다.
+   *
+   * @param jobId - 작업 고유 식별자
+   * @param store - 스토어 식별자 (계정 정보 검색에 사용)
+   * @returns 알림이 존재하면 true, 존재하지 않으면 false 반환
+   * @throws 페이지 로드 또는 요소 선택에 실패하면 예외 발생 가능
+   */
   async requestNotification(jobId: string, store: string): Promise<boolean> {
     const pageId = `page-${store}-${jobId}`;
     const contextId = `context-${store}-${jobId}`;
@@ -690,8 +749,6 @@ export class OnchCrawlerService {
       timeout: 60000,
       waitUntil: 'networkidle',
     });
-    // todo add
-    // https://www.onch3.co.kr/admin_mem_prd.html
 
     await onchPage.waitForLoadState('networkidle');
 

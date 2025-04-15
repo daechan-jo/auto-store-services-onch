@@ -5,9 +5,18 @@ export class RequestNotificationProvider {
   constructor(private readonly playwrightService: PlaywrightService) {}
 
   /**
-   * onch 페이지에서 새로운 알림이 있는지 확인합니다.
-   * @param onchPage - 온치 페이지 객체
-   * @returns 새로운 알림이 있으면 true, 없으면 false를 반환합니다.
+   * 온채 페이지에서 새로운 알림을 확인하는 메서드
+   *
+   * 주어진 Playwright Page 객체를 사용하여 온채 관리자 페이지에서
+   * 두 가지 유형의 알림을 확인합니다:
+   * 1. 공급사 알림 (특정 선택자를 통해 확인)
+   * 2. 반품/교환 알림 (new_btn.gif 이미지를 검색)
+   *
+   * 두 알림 중 하나라도 존재하면 true를 반환합니다.
+   *
+   * @param onchPage - 이미 로그인된 온채 사이트의 Playwright Page 객체
+   * @returns 알림이 존재하면 true, 그렇지 않으면 false
+   * @throws 페이지 액세스나 요소 선택 중 오류가 발생할 수 있으나 내부적으로 처리됨
    */
   async requestNotification(onchPage: Page): Promise<boolean> {
     try {
