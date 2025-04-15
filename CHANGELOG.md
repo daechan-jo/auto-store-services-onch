@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.5.0...v1.6.0) (2025-04-15)
+
+
+### Features
+
+* refactor product registration process and add new provider for URL generation ([becee6d](https://github.com/daechan-jo/auto-store-services-onch/commit/becee6d541fbd34149fc082a5695d2a47ba7b3b0))
+
 # [1.5.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.4.0...v1.5.0) (2025-04-15)
 
 
