@@ -6,6 +6,7 @@ import {
   JobType,
   OnchProduct,
   OnchWithCoupangProduct,
+  OrderResult,
   ProductRegistrationReqDto,
   ProductRegistrationResult,
 } from '@daechanjo/models';
@@ -291,7 +292,7 @@ export class OnchCrawlerService {
    * @param orders - 발주할 쿠팡 주문 정보 배열
    * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
-   * @returns {Promise<Array>} - 각 주문 항목별 발주 결과 객체를 포함하는 배열을 반환하는 Promise
+   * @returns {Promise<OrderResult[]>} - 각 주문 항목별 발주 결과 객체를 포함하는 배열을 반환하는 Promise
    *                            성공 시: {status: 'success', orderId, ordererName, receiverName, sellerProductName, sellerProductItemName, shippingCount}
    *                            실패 시: {status: 'failed', orderId, ordererName, receiverName, productCode, sellerProductName,
    *                                    sellerProductItemName, shippingCount, safeNumber, fullAddress, error}
@@ -319,7 +320,7 @@ export class OnchCrawlerService {
     jobType: string,
     store: string,
     orders: CoupangOrder[],
-  ): Promise<Array<any>> {
+  ): Promise<OrderResult[]> {
     const contextId = `context-${store}-${jobId}`;
     const pageId = `page-${store}-${jobId}`;
     const onchPage = await this.playwrightService.loginToOnchSite(store, contextId, pageId);
@@ -376,7 +377,7 @@ export class OnchCrawlerService {
             receiverName: order.receiverName,
             sellerProductName: productName,
             sellerProductItemName: options,
-            shippingCount: order.items,
+            shippingCount: order.items[0].count,
             safeNumber: order.receiverMobile,
             fullAddress: order.addr,
             error: null,
@@ -390,10 +391,10 @@ export class OnchCrawlerService {
             receiverName: order.receiverName,
             sellerProductName: productName,
             sellerProductItemName: options,
-            shippingCount: order.items,
+            shippingCount: order.items[0].count,
             safeNumber: order.receiverMobile,
             fullAddress: order.addr,
-            error: error.message,
+            error: error,
           });
         }
       }
