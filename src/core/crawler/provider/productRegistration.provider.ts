@@ -275,8 +275,8 @@ export class ProductRegistrationProvider {
             apiResponseError = respText;
             apiResponseCaptured = true;
           }
-        } catch (e) {
-          console.error(`${jobType}${jobId}: 응답 파싱 실패`, e);
+        } catch (error) {
+          console.warn(`${jobType}${jobId}: 응답 파싱 실패 또는 통과`, error);
         }
       }
     };

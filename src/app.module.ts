@@ -24,6 +24,7 @@ import { OnchItemEntity } from './infrastructure/entities/onchItem.entity';
 import { OnchProductEntity } from './infrastructure/entities/onchProduct.entity';
 import { OnchRepository } from './infrastructure/repository/onch.repository';
 import { RequestNotificationProvider } from './core/crawler/provider/requestNotification.provider';
+import { ProductRegistrationProvider } from './core/crawler/provider/productRegistration.provider';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { RequestNotificationProvider } from './core/crawler/provider/requestNoti
     AutomaticOrderingProvider,
     DeliveryExtractionProvider,
     RequestNotificationProvider,
+    ProductRegistrationProvider,
   ],
 })
 export class AppModule implements OnApplicationBootstrap, OnModuleInit {
