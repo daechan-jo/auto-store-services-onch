@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.6.0...v1.7.0) (2025-04-16)
+
+
+### Features
+
+* update OrderResult type in crawler service and adjust shippingCount logic ([7d7e326](https://github.com/daechan-jo/auto-store-services-onch/commit/7d7e326ad86f2b3d361312d0acb562a1ae340abb))
+
 # [1.6.0](https://github.com/daechan-jo/auto-store-services-onch/compare/v1.5.0...v1.6.0) (2025-04-15)
 
 
