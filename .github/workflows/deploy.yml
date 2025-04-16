@@ -31,10 +31,10 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:latest
             ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:${{ github.sha }}
 
-      - name: Update Deployment
-        run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
-          chmod 600 kubeconfig.yaml
-          export KUBECONFIG=./kubeconfig.yaml
-          kubectl set image deployment/onch-service onch-service=ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:${{ github.sha }}
-          kubectl rollout status deployment/onch-service --timeout=180s
+#      - name: Update Deployment
+#        run: |
+#          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+#          chmod 600 kubeconfig.yaml
+#          export KUBECONFIG=./kubeconfig.yaml
+#          kubectl set image deployment/onch-service onch-service=ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:${{ github.sha }}
+#          kubectl rollout status deployment/onch-service --timeout=180s
