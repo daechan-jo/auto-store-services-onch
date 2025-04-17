@@ -29,8 +29,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  const dataSource = app.get(DataSource);
-  addTransactionalDataSource(dataSource);
+  // const dataSource = app.get(DataSource);
+  // addTransactionalDataSource(dataSource);
 
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
