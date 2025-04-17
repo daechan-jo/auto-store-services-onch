@@ -40,10 +40,11 @@ import { ProductRegistrationProvider } from './core/crawler/provider/productRegi
     BullModule.registerQueueAsync({
       name: 'onch-bull-queue',
       useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
-        },
+        // redis: {
+        //   host: configService.get<string>('REDIS_HOST'),
+        //   port: configService.get<number>('REDIS_PORT'),
+        // },
+        redis: configService.get<string>('REDIS_URL'),
         prefix: '{bull}',
         defaultJobOptions: {
           removeOnComplete: {
