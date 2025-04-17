@@ -1,3 +1,10 @@
+## [1.7.4](https://github.com/hush-mart/onch/compare/v1.7.3...v1.7.4) (2025-04-17)
+
+
+### Bug Fixes
+
+* comment out data source initialization in main application setup ([e64c802](https://github.com/hush-mart/onch/commit/e64c8029eb722f20326ccbfa11f95d2f31399d74))
+
 ## [1.7.3](https://github.com/hush-mart/onch/compare/v1.7.2...v1.7.3) (2025-04-17)
 
 
