@@ -1,3 +1,10 @@
+## [1.7.11](https://github.com/hush-mart/onch/compare/v1.7.10...v1.7.11) (2025-04-17)
+
+
+### Bug Fixes
+
+* streamline dotenv configuration for different environments ([088697b](https://github.com/hush-mart/onch/commit/088697bbbae22a85f601c94970afe4e9e4d19c77))
+
 ## [1.7.10](https://github.com/hush-mart/onch/compare/v1.7.9...v1.7.10) (2025-04-17)
 
 
