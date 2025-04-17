@@ -4,22 +4,19 @@ import { setupGlobalConsoleLogging } from '@daechanjo/log';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import * as dotenv from 'dotenv';
-import { initializeTransactionalContext, addTransactionalDataSource } from 'typeorm-transactional';
+import { initializeTransactionalContext } from 'typeorm-transactional';
 
 import { AppModule } from './app.module';
 import { AppConfig } from './config/app.config';
 import { ValidationPipe } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 
 const isDev = process.env.NODE_ENV !== 'PROD';
 
-if (isDev) {
-  dotenv.config({
-    path: '/Users/daechanjo/codes/project/auto-store/.env',
-  });
-} else {
-  dotenv.config();
-}
+isDev
+  ? dotenv.config({
+      path: '/Users/daechanjo/codes/project/auto-store/.env',
+    })
+  : dotenv.config({ path: '/app/.env' });
 
 async function bootstrap() {
   const appConfig = AppConfig.getInstance();
@@ -28,10 +25,6 @@ async function bootstrap() {
   setupGlobalConsoleLogging({ appName: appConfig.appName });
 
   const app = await NestFactory.create(AppModule);
-
-  // const dataSource = app.get(DataSource);
-  // addTransactionalDataSource(dataSource);
-
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
