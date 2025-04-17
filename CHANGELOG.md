@@ -1,3 +1,10 @@
+## [1.7.8](https://github.com/hush-mart/onch/compare/v1.7.7...v1.7.8) (2025-04-17)
+
+
+### Bug Fixes
+
+* update base image in Dockerfile to Playwright v1.41.0-focal ([a8189a1](https://github.com/hush-mart/onch/commit/a8189a1262cf9d9b8625787dbe36ae869276c33c))
+
 ## [1.7.7](https://github.com/hush-mart/onch/compare/v1.7.6...v1.7.7) (2025-04-17)
 
 
