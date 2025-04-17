@@ -2,9 +2,13 @@ import * as dotenv from 'dotenv';
 import * as path from 'node:path';
 import { DataSourceOptions } from 'typeorm';
 
-dotenv.config({
-  path: '/Users/daechanjo/codes/project/auto-store/.env',
-});
+if (process.env.NODE_ENV !== 'PROD') {
+  dotenv.config({
+    path: '/Users/daechanjo/codes/project/auto-store/.env',
+  });
+} else {
+  dotenv.config();
+}
 
 export const getDbConfig = (): DataSourceOptions => {
   return {

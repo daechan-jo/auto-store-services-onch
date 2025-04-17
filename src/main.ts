@@ -23,6 +23,8 @@ if (isDev) {
 async function bootstrap() {
   const appConfig = AppConfig.getInstance();
   appConfig.appName = 'Onch';
+
+  initializeTransactionalContext();
   setupGlobalConsoleLogging({ appName: appConfig.appName });
 
   const app = await NestFactory.create(AppModule);
