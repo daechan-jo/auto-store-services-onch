@@ -1,3 +1,10 @@
+## [1.7.6](https://github.com/hush-mart/onch/compare/v1.7.5...v1.7.6) (2025-04-17)
+
+
+### Bug Fixes
+
+* update base image in Dockerfile to node:22-alpine ([29da958](https://github.com/hush-mart/onch/commit/29da9589c99f98b77d8ec716a2d614b0f747ece3))
+
 ## [1.7.5](https://github.com/hush-mart/onch/compare/v1.7.4...v1.7.5) (2025-04-17)
 
 
