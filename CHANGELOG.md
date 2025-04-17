@@ -1,3 +1,10 @@
+## [1.7.5](https://github.com/hush-mart/onch/compare/v1.7.4...v1.7.5) (2025-04-17)
+
+
+### Bug Fixes
+
+* update @nestjs/schedule to version 6.0.0 and adjust related dependencies ([613f3e0](https://github.com/hush-mart/onch/commit/613f3e043c9da6bf7b10f52e79f47da4c59d0262))
+
 ## [1.7.4](https://github.com/hush-mart/onch/compare/v1.7.3...v1.7.4) (2025-04-17)
 
 
