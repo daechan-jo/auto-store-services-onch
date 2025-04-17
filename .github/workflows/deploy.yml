@@ -1,40 +1,34 @@
-name: Build and Deploy
+name: Build and Deploy Onch-Service
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - '.github/workflows/deploy.yml'
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: [self-hosted, macOS, ARM64]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Build Docker image
+        run: |
+          # 고유한 태그 사용 (최신 커밋 해시)
+          docker build -t onch-service:${{ github.sha }} .
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:latest
-            ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:${{ github.sha }}
-
-#      - name: Update Deployment
-#        run: |
-#          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
-#          chmod 600 kubeconfig.yaml
-#          export KUBECONFIG=./kubeconfig.yaml
-#          kubectl set image deployment/onch-service onch-service=ghcr.io/${{ github.repository_owner }}/auto-store-services-onch:${{ github.sha }}
-#          kubectl rollout status deployment/onch-service --timeout=180s
+      - name: Update Kubernetes deployment
+        run: |
+          # 새 이미지로 디플로이먼트 업데이트
+          kubectl set image deployment/onch-service onch-service=onch-service:${{ github.sha }}
+          
+          # 롤링 업데이트 전략 수정 (1개의 레플리카로도 업데이트가 가능하게)
+          kubectl patch deployment onch-service -p '{"spec":{"strategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0}}}}'
+          
+          # 디플로이먼트 상태 확인 (타임아웃 설정)
+          kubectl rollout status deployment/onch-service --timeout=180s

@@ -1,4 +1,3 @@
-import { AdulType, CategoryType, ChannelType, JobType, TaxType } from '@daechanjo/models';
 import { PlaywrightModule, PlaywrightService } from '@daechanjo/playwright';
 import { RabbitMQModule } from '@daechanjo/rabbitmq';
 import { UtilModule } from '@daechanjo/util';
@@ -30,7 +29,10 @@ import { ProductRegistrationProvider } from './core/crawler/provider/productRegi
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '/Users/daechanjo/codes/project/auto-store/.env',
+      envFilePath:
+        process.env.NODE_ENV !== 'PROD'
+          ? '/Users/daechanjo/codes/project/auto-store/.env'
+          : '/app/.env',
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
     TypeOrmModule.forFeature([OnchProductEntity, OnchItemEntity]),
