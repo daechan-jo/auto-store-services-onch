@@ -36,14 +36,9 @@ import { ProductRegistrationProvider } from './core/crawler/provider/productRegi
     }),
     TypeOrmModule.forRootAsync(TypeormConfig),
     TypeOrmModule.forFeature([OnchProductEntity, OnchItemEntity]),
-
     BullModule.registerQueueAsync({
       name: 'onch-bull-queue',
       useFactory: async (configService: ConfigService) => ({
-        // redis: {
-        //   host: configService.get<string>('REDIS_HOST'),
-        //   port: configService.get<number>('REDIS_PORT'),
-        // },
         redis: configService.get<string>('REDIS_URL'),
         prefix: '{bull}',
         defaultJobOptions: {
@@ -68,9 +63,15 @@ import { ProductRegistrationProvider } from './core/crawler/provider/productRegi
       }),
       inject: [ConfigService],
     }),
+    RabbitMQModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        urls: [configService.get<string>('RABBITMQ_URL')],
+      }),
+    }),
     ScheduleModule.forRoot(),
     PlaywrightModule,
-    RabbitMQModule,
     UtilModule,
   ],
   controllers: [OnchMessageController],
