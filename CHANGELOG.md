@@ -1,3 +1,10 @@
+## [1.7.12](https://github.com/hush-mart/onch/compare/v1.7.11...v1.7.12) (2025-04-17)
+
+
+### Bug Fixes
+
+* update RabbitMQ configuration and upgrade rabbitmq package to v2.0.1 ([2ba9689](https://github.com/hush-mart/onch/commit/2ba96890cd1b8e43dd2c2691bbeed9edc322871a))
+
 ## [1.7.11](https://github.com/hush-mart/onch/compare/v1.7.10...v1.7.11) (2025-04-17)
 
 
