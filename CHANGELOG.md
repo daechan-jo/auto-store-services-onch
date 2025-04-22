@@ -1,3 +1,10 @@
+## [1.7.13](https://github.com/hush-mart/onch/compare/v1.7.12...v1.7.13) (2025-04-22)
+
+
+### Bug Fixes
+
+* enhance configuration handling and update return types in services ([115f4ff](https://github.com/hush-mart/onch/commit/115f4ff090643b7bf26e79a113a2c0151009f074))
+
 ## [1.7.12](https://github.com/hush-mart/onch/compare/v1.7.11...v1.7.12) (2025-04-17)
 
 
