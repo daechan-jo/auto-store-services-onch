@@ -55,7 +55,7 @@ export class AutomaticOrderingProvider {
    * @param jobId - 현재 실행 중인 크론 작업의 고유 식별자
    * @param jobType - 로그 메시지에 포함될 작업 유형 식별자
    *
-   * @returns {Promise<void>} - 옵션 선택이 완료되면 해결되는 Promise
+   * @returns {Promise<string>} - 옵션 선택이 완료되면 해결되는 Promise
    *
    * @throws {Error} - 옵션 드롭다운에서 일치하는 옵션을 찾을 수 없는 경우 발생하는 오류
    *
@@ -76,7 +76,7 @@ export class AutomaticOrderingProvider {
     items: CoupangOrderItem[],
     jobId: string,
     jobType: string,
-  ): Promise<void> {
+  ): Promise<string> {
     console.log(`${jobType}${jobId}: 옵션 설정 시작`);
 
     await page
@@ -167,6 +167,8 @@ export class AutomaticOrderingProvider {
 
         // 항목 개수 업데이트
         previousSelectedCount = newItemIndex;
+
+        return targetOption.value;
       } catch (error) {
         console.error(`${JobType.ERROR}${jobType}${jobId}: 옵션 선택 중 오류 발생`, error);
         throw error;

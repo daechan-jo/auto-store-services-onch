@@ -26,9 +26,9 @@ jobs:
         run: |
           # 새 이미지로 디플로이먼트 업데이트
           kubectl set image deployment/onch-service onch-service=onch-service:${{ github.sha }}
-          
+
           # 롤링 업데이트 전략 수정 (1개의 레플리카로도 업데이트가 가능하게)
           kubectl patch deployment onch-service -p '{"spec":{"strategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0}}}}'
-          
+
           # 디플로이먼트 상태 확인 (타임아웃 설정)
           kubectl rollout status deployment/onch-service --timeout=180s

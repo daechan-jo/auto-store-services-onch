@@ -95,6 +95,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     @InjectQueue('onch-bull-queue') private readonly queue: Queue,
     private readonly playwrightService: PlaywrightService,
     private readonly onchCrawlerService: OnchCrawlerService,
+    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit() {}
@@ -107,7 +108,7 @@ export class AppModule implements OnApplicationBootstrap, OnModuleInit {
     await this.queue.empty(); // 모든 대기 중인 작업 제거 (옵션)
 
     setTimeout(async () => {
-      this.playwrightService.setConfig(true, 'chromium');
+      this.playwrightService.setConfig(this.configService.get<boolean>('HEAD_LESS'), 'chromium');
       await this.playwrightService.initializeBrowser();
     });
   }

@@ -349,7 +349,7 @@ export class OnchCrawlerService {
           await this.automaticOrderingProvider.searchProduct(onchPage, productCode, jobId, jobType);
 
           // 옵션설정
-          await this.automaticOrderingProvider.selectProductOption(
+          const targetOption = await this.automaticOrderingProvider.selectProductOption(
             onchPage,
             order.items,
             jobId,
@@ -376,9 +376,10 @@ export class OnchCrawlerService {
             ordererName: order.memberName,
             receiverName: order.receiverName,
             sellerProductName: productName,
-            sellerProductItemName: options,
+            sellerProductItemName: targetOption,
             shippingCount: order.items[0].count,
             safeNumber: order.receiverMobile,
+            postCode: order.postCode,
             fullAddress: order.addr,
             error: null,
           });
@@ -393,6 +394,7 @@ export class OnchCrawlerService {
             sellerProductItemName: options,
             shippingCount: order.items[0].count,
             safeNumber: order.receiverMobile,
+            postCode: order.postCode,
             fullAddress: order.addr,
             error: error,
           });
